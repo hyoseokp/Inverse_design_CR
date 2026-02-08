@@ -55,6 +55,11 @@ color-router-inv/
 │  │  │  ├─ memmap_io.py           # spectra memmap, valid_mask, progress
 │  │  │  └─ validate_topk.py       # TopK → seed → struct → GDS → FDTD
 │  │  │
+│  │  ├─ dashboard/
+│  │  │  ├─ app.py                 # local dashboard server (127.0.0.1)
+│  │  │  ├─ state.py               # dashboard state + file watchers
+│  │  │  └─ render.py              # loss graph + top-K preview rendering
+│  │  │
 │  │  └─ reports/
 │  │     ├─ make_report.py         # surrogate vs FDTD 비교 리포트
 │  │     └─ plots.py               # (선택) 시각화
@@ -70,6 +75,7 @@ color-router-inv/
 │  ├─ inverse_runs/               # inverse 결과(run별)
 │  ├─ gds_valid/                  # 검증용 GDS
 │  ├─ fdtd_results/               # FDTD spectra / valid / progress
+│  ├─ progress/                   # (dashboard) metrics.jsonl + topk_pack snapshots + previews
 │  └─ wavelength/                 # wavelength grid 저장
 │
 └─ docs/
@@ -141,7 +147,17 @@ color-router-inv/
 
 ---
 
-### 2.7 최종 리포트 / 랭킹
+### 2.7 Local dashboard (최적화 진행 모니터링)
+- **폴더**: `dashboard/`
+- **역할**:
+  - 로컬 브라우저에서 optimization 진행상황 확인
+  - loss graph (step/time)
+  - top-K 구조 preview + 핵심 metrics
+  - 입력 데이터는 파일 기반(progress 폴더)으로 읽기
+
+---
+
+### 2.8 최종 리포트 / 랭킹
 - **파일**: `reports/make_report.py`
 - **역할**:
   - FDTD(301→30) vs surrogate(30) 비교
