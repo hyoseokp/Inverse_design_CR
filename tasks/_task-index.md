@@ -35,11 +35,17 @@ Source spec:
   - 여기서 `hyoseokp`는 효석의 GitHub 계정(소유자) 이름.
   - FDTD를 Python으로 다루는 예제 코드. Task-08(FDTD runner) 구현 시 반드시 참고.
 
-## Reference code (Forward surrogate)
-- `hyoseokp/data_CR/code/CR_recon/`
+## Reference (Forward surrogate + dataset)
+- Forward surrogate 모델/파라미터(128×128 → 2×2×30): `hyoseokp/data_CR/code/CR_recon/`
   - 여기서 `hyoseokp`는 효석의 GitHub 계정(소유자) 이름.
-  - 128×128 구조 → 2×2×30 forward surrogate 모델/파라미터 저장 폴더
   - 모델 로딩/입출력 정의는 폴더 내 `catalog.md`를 먼저 읽고 따른다.
+
+- Forward pre-train dataset repo: https://github.com/hyoseokp/data_CR
+  - forward surrogate의 pre-train 데이터셋 및 관련 리소스가 있음
+
+- Dataset 정제/로딩 코드(참고):
+  - https://github.com/hyoseokp/CR_DL_auto/blob/main/code/CR_recon/data/dataset.py
+  - forward fine-tune/재학습(Task-12-03)에서 데이터 정제 규약을 맞출 때 참고
 
 ## Critical path
 01 → 03 → 05 → 06 → 07 → 08 → 09 → 10 → 11

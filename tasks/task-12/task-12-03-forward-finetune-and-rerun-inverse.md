@@ -10,6 +10,9 @@ FDTD로 검증된 Top-M 데이터를 데이터셋에 추가한 뒤, forward surr
 - Dataset append bundle: `data/dataset/append/run_xxx/`
 - Forward model source (GitHub owner=hyoseokp): `hyoseokp/data_CR/code/CR_recon/`
   - `catalog.md` 먼저 읽고 학습/로딩 규칙 확인
+- Forward pre-train dataset repo: https://github.com/hyoseokp/data_CR
+- Dataset 정제/로딩 코드(참고):
+  - https://github.com/hyoseokp/CR_DL_auto/blob/main/code/CR_recon/data/dataset.py
 - (Optional) training scripts from CR_recon or separate training repo
 
 ## Outputs

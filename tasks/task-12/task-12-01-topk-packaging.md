@@ -9,6 +9,7 @@ Surrogate 기준으로 후보를 넓게(Top-K, 예: 50~200) 뽑고, 이후 단�
 - Task-06 outputs (inverse optimization loop)
 - Forward model (existing, frozen, GitHub owner=hyoseokp): `hyoseokp/data_CR/code/CR_recon/`
   - `catalog.md`를 먼저 읽고 로딩/입출력 기준 준수
+- Forward pre-train dataset repo (context): https://github.com/hyoseokp/data_CR
 
 ## Outputs
 - (create) `src/scripts/run_select_topk.py` (또는 `src/crinv/optimize/select_topk.py` + 스크립트 엔트리)
