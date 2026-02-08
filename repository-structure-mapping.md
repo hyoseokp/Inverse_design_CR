@@ -20,6 +20,8 @@ color-router-inv/
 │
 ├─ src/
 │  ├─ crinv/
+│  │  ├─ __main__.py              # (optional) package entry
+
 │  │  ├─ __init__.py
 │  │  │
 │  │  ├─ models/
@@ -66,9 +68,14 @@ color-router-inv/
 │  │
 │  └─ scripts/
 │     ├─ run_inverse.py            # CLI: inverse 실행
+│     ├─ run_dashboard.py          # CLI: local dashboard 실행
 │     ├─ run_export_gds.py         # CLI: topK → GDS 생성
 │     ├─ run_fdtd_validate.py      # CLI: GDS → FDTD 검증 (재개 가능)
 │     └─ run_rank_final.py         # CLI: 최종 랭킹
+│
+├─ tests/                         # unit/smoke tests
+│
+├─ REPORTS/                       # integration verify logs/summaries
 │
 ├─ data/                          # (깃 제외 권장)
 │  ├─ forward_ckpt/               # forward surrogate 체크포인트
@@ -154,6 +161,8 @@ color-router-inv/
   - loss graph (step/time)
   - top-K 구조 preview + 핵심 metrics
   - 입력 데이터는 파일 기반(progress 폴더)으로 읽기
+- **CLI 엔트리(권장)**:
+  - `python -m scripts.run_dashboard --config configs/inverse.yaml`
 
 ---
 
