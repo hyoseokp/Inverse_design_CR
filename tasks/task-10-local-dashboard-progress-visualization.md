@@ -11,12 +11,12 @@ Inverse optimization을 돌리는 동안 로컬 브라우저에서 진행상황�
 - Task-01 config (topK, logging interval 등)
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/dashboard/app.py` (또는 `server.py`)
-- (create) `bot/plans/inverse-design/code/inverse_design/dashboard/state.py`
-- (create) `bot/plans/inverse-design/code/inverse_design/dashboard/templates/index.html` (필요 시)
-- (create) `bot/plans/inverse-design/code/inverse_design/dashboard/static/` (js/css)
-- (create) `bot/plans/inverse-design/code/tests/test_dashboard_smoke.py`
-- (update) `bot/plans/inverse-design/code/inverse_design/inverse_opt.py`
+- (create) `src/crinv/dashboard/app.py` (또는 `server.py`)
+- (create) `src/crinv/dashboard/state.py`
+- (create) `src/crinv/dashboard/templates/index.html` (필요 시)
+- (create) `src/crinv/dashboard/static/` (js/css)
+- (create) `tests/test_dashboard_smoke.py`
+- (update) `src/crinv/inverse_opt.py`
   - 진행 로그/스냅샷(예: JSONL/npz/png) 기록 및 대시보드에서 읽을 수 있게 연결
 
 ## Constraints
@@ -26,9 +26,9 @@ Inverse optimization을 돌리는 동안 로컬 브라우저에서 진행상황�
 
 ### Data contract (Task-06과 인터페이스 고정)
 대시보드는 아래 파일만 읽어서 동작해야 한다(최적화 프로세스와 느슨하게 결합):
-- `code/artifacts/progress/metrics.jsonl` (append-only)
-- `code/artifacts/progress/topk_step-<step>.npz` (periodic)
-- (optional) `code/artifacts/progress/previews/*.png`
+- `data/progress/metrics.jsonl` (append-only)
+- `data/progress/topk_step-<step>.npz` (periodic)
+- (optional) `data/progress/previews/*.png`
 
 - 의존성 최소화:
   - 옵션 A: Streamlit
@@ -36,7 +36,7 @@ Inverse optimization을 돌리는 동안 로컬 브라우저에서 진행상황�
   - (선호) 설치/실행이 쉬운 쪽으로 선택하되, `pyproject.toml`에 명시.
 
 ## Acceptance criteria
-- `python -m inverse_design.dashboard.app` 실행 시 로컬 URL이 출력되고 접속 가능.
+- `python -m crinv.dashboard.app` 실행 시 로컬 URL이 출력되고 접속 가능.
 - loss graph가 step 진행에 따라 업데이트됨.
 - top-K preview가 최소 K=5 이상 표시됨.
 - 최적화가 끝나도 로그 파일 기반으로 과거 결과를 재조회 가능.

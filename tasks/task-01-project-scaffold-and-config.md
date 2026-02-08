@@ -4,8 +4,8 @@
 Inverse-design 프로젝트를 `inverse-design/` 폴더 안에서 **재현 가능한 코드/데이터/결과 구조**로 세팅하고, 블루프린트(v1.3)의 파라미터(σ/τ/밴드 정의 등)를 코드로 표현 가능한 **config 스키마**로 정리한다.
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
-- `bot/plans/inverse-design/repository-structure-mapping.md` (레포 구조 매핑 문서)
+- `color-router-inverse-design-blueprint-v1.3.md`
+- `repository-structure-mapping.md` (레포 구조 매핑 문서)
 - **Reference (existing code, GitHub owner=hyoseokp):** `hyoseokp/data_CR/data_gen.ipynb`
   - 여기서 `hyoseokp`는 효석의 GitHub 계정(소유자) 이름.
   - FDTD 실행/제어 관련 코드가 있으므로, Task-08에서 재사용/정합이 가능하도록
@@ -16,15 +16,19 @@ Inverse-design 프로젝트를 `inverse-design/` 폴더 안에서 **재현 가�
   - config에서 surrogate 경로/체크포인트/출력채널(30) 등을 표현할 수 있게 고려.
 
 ## Outputs (create)
-- `bot/plans/inverse-design/code/README.md`
-- `bot/plans/inverse-design/code/pyproject.toml` (또는 `requirements.txt` — 선택 1개)
-- `bot/plans/inverse-design/code/inverse_design/__init__.py`
-- `bot/plans/inverse-design/code/inverse_design/config.py` (dataclass/pydantic 중 택1)
-- `bot/plans/inverse-design/code/inverse_design/constants.py` (RGB band ranges, eps 등)
-- `bot/plans/inverse-design/code/tests/test_config_smoke.py`
+- `README.md`
+- `pyproject.toml` (또는 `requirements.txt` — 선택 1개)
+- `.gitignore`
+- `configs/paths.example.yaml`
+- `configs/inverse.yaml` (skeleton)
+- `configs/fdtd.yaml` (skeleton)
+- `src/crinv/__init__.py`
+- `src/crinv/config.py` (dataclass/pydantic 중 택1)
+- `src/crinv/constants.py` (RGB band ranges, eps 등)
+- `tests/test_config_smoke.py`
 
 ## Constraints
-- 앞으로 모든 산출물은 `bot/plans/inverse-design/code/**` 아래에만 생성.
+- 코드 산출물은 repository-structure-mapping.md의 구조를 따른다 (`src/crinv/**`, `configs/**`, `tests/**`).
 - 스펙(블루프린트)과 다른 임의 변경 금지.
 
 ## Acceptance criteria
@@ -42,8 +46,8 @@ Inverse-design 프로젝트를 `inverse-design/` 폴더 안에서 **재현 가�
 - 없음
 
 ## Verification
-- (로컬) `python -c "from inverse_design.config import InverseDesignConfig; print(InverseDesignConfig())"`
+- (로컬) `python -c "from crinv.config import InverseDesignConfig; print(InverseDesignConfig())"`
 - (테스트) `pytest -q`
 
 ## Rollback notes
-- 생성된 `bot/plans/inverse-design/code/` 디렉토리만 제거하면 원복 가능.
+- 생성된 파일들을 git에서 되돌리면 원복 가능.

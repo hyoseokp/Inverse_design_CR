@@ -9,14 +9,14 @@
 그리고 robust design을 위해 σ/τ 샘플링에 대한 기대값 형태로 loss를 계산할 수 있게 한다.
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
+- `color-router-inverse-design-blueprint-v1.3.md`
 - Task-03 (generator outputs u, X_ste)
 - Task-04 (band averages)
 - Task-01 (weights/eps)
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/losses.py`
-- (create) `bot/plans/inverse-design/code/tests/test_losses_smoke.py`
+- (create) `src/crinv/losses.py`
+- (create) `tests/test_losses_smoke.py`
 
 ## Constraints
 - `ε` 안정화 파라미터는 config/constants에서 제어.

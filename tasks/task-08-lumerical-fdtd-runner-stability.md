@@ -7,8 +7,8 @@
 - 안정성 규칙(Chunk/timeout/zombie kill/retry/2-phase commit) 준수.
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
-- `bot/plans/inverse-design/repository-structure-mapping.md` (fdtd/* 모듈 책임/CLI 플로우 매핑 참고)
+- `color-router-inverse-design-blueprint-v1.3.md`
+- `repository-structure-mapping.md` (fdtd/* 모듈 책임/CLI 플로우 매핑 참고)
 - Task-07 GDS export outputs
 - Lumerical template file path (user/environment provided): `air_SiN_2um_NA.fsp`
 - **Reference (existing code, GitHub owner=hyoseokp):** `hyoseokp/data_CR/data_gen.ipynb`
@@ -17,11 +17,11 @@
     `fdtd_runner.py`/`fdtd_scripts.py` 설계 시 이 노트북의 패턴을 참고할 것.
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/fdtd_runner.py`
-- (create) `bot/plans/inverse-design/code/inverse_design/fdtd_scripts.py` (gdsimport/extract 스크립트 템플릿)
-- (create) `bot/plans/inverse-design/code/inverse_design/commit_protocol.py` (valid=0/2/1)
-- (create) `bot/plans/inverse-design/code/artifacts/fdtd_runs/.gitkeep`
-- (create) `bot/plans/inverse-design/code/tests/test_commit_protocol.py`
+- (create) `src/crinv/fdtd_runner.py`
+- (create) `src/crinv/fdtd_scripts.py` (gdsimport/extract 스크립트 템플릿)
+- (create) `src/crinv/commit_protocol.py` (valid=0/2/1)
+- (create) `data/fdtd_runs/.gitkeep`
+- (create) `tests/test_commit_protocol.py`
 
 ## Constraints
 - Approval required: 실제 Lumerical 실행/프로세스 kill 같은 외부/환경 의존 행동은 실행 전 사용자 승인 필요.

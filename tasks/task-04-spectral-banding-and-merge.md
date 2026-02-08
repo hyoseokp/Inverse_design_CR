@@ -7,12 +7,12 @@ Surrogate/FDTD 결과 스펙트럼에서
 을 표준화된 유틸로 구현한다.
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
+- `color-router-inverse-design-blueprint-v1.3.md`
 - Task-01 constants/config
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/spectral.py`
-- (create) `bot/plans/inverse-design/code/tests/test_spectral_merge_and_bands.py`
+- (create) `src/crinv/spectral.py`
+- (create) `tests/test_spectral_merge_and_bands.py`
 
 ## Constraints
 - 30채널 기준 band 정의(B:400–500,G:500–600,R:600–700)를 config/constants에서 관리.

@@ -7,14 +7,14 @@ Top-K 구조(128×128 binary)를 GDS로 export한다. 블루프린트 규칙 준
 - layer: 1 (1:0)
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
-- `bot/plans/inverse-design/repository-structure-mapping.md` (gds/export_gds.py + polygonize.py 매핑 참고)
+- `color-router-inverse-design-blueprint-v1.3.md`
+- `repository-structure-mapping.md` (gds/export_gds.py + polygonize.py 매핑 참고)
 - Task-06 exported `struct128` binaries
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/gds_export.py`
-- (create) `bot/plans/inverse-design/code/tests/test_gds_export_smoke.py`
-- (create) `bot/plans/inverse-design/code/artifacts/gds/.gitkeep`
+- (create) `src/crinv/gds_export.py`
+- (create) `tests/test_gds_export_smoke.py`
+- (create) `data/gds/.gitkeep`
 
 ## Constraints
 - Polygonization 방식은 결정론적이어야 함.

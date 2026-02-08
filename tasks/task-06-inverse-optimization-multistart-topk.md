@@ -11,8 +11,8 @@
 또한 multi-start(batch)로 여러 초기값을 동시에 최적화하고, top-K 결과를 파일로 저장한다.
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
-- `bot/plans/inverse-design/repository-structure-mapping.md` (optimize/inverse_search.py 매핑 참고)
+- `color-router-inverse-design-blueprint-v1.3.md`
+- `repository-structure-mapping.md` (optimize/inverse_search.py 매핑 참고)
 - Task-02,03,04,05 outputs
 - **Forward model (existing, frozen, GitHub owner=hyoseokp):** `hyoseokp/data_CR/code/CR_recon/`
   - 여기서 `hyoseokp`는 효석의 GitHub 계정(소유자) 이름.
@@ -20,13 +20,13 @@
   - 모델/입출력/로드 방법은 폴더 내 `catalog.md`를 먼저 읽고 그 기준을 따른다.
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/inverse_opt.py`
-- (create) `bot/plans/inverse-design/code/inverse_design/surrogate_interface.py` (forward surrogate를 plug-in 형태로)
-- (create) `bot/plans/inverse-design/code/inverse_design/artifacts.py` (seed/struct/metrics 저장 포맷)
-- (create) `bot/plans/inverse-design/code/inverse_design/progress_logger.py` (dashboard용 진행 로그/스냅샷 기록)
-- (create) `bot/plans/inverse-design/code/tests/test_inverse_opt_dryrun.py` (mock surrogate로 2~3 step 동작)
-- (create) `bot/plans/inverse-design/code/artifacts/candidates/.gitkeep`
-- (create) `bot/plans/inverse-design/code/artifacts/progress/.gitkeep`
+- (create) `src/crinv/inverse_opt.py`
+- (create) `src/crinv/surrogate_interface.py` (forward surrogate를 plug-in 형태로)
+- (create) `src/crinv/artifacts.py` (seed/struct/metrics 저장 포맷)
+- (create) `src/crinv/progress_logger.py` (dashboard용 진행 로그/스냅샷 기록)
+- (create) `tests/test_inverse_opt_dryrun.py` (mock surrogate로 2~3 step 동작)
+- (create) `data/candidates/.gitkeep`
+- (create) `data/progress/.gitkeep`
 
 ## Constraints
 - Forward surrogate는 inverse 동안 frozen.
@@ -41,13 +41,13 @@
 
 권장 포맷(가볍고 재현 가능):
 - Metrics log (append-only JSONL):
-  - `bot/plans/inverse-design/code/artifacts/progress/metrics.jsonl`
+  - `data/progress/metrics.jsonl`
   - 최소 필드: `ts`, `step`, `seed_id(or batch idx)`, `loss_total`, `loss_spec`, `loss_reg`, `D_R`, `D_G`, `D_B`, `O_R`, `O_G`, `O_B`
 - Top-K snapshot (periodic, overwrite OK or versioned):
-  - `bot/plans/inverse-design/code/artifacts/progress/topk_step-<step>.npz`
+  - `data/progress/topk_step-<step>.npz`
     - arrays: `struct128_topk` (K,128,128 uint8), `seed16_topk` (K,16,16 float32), `metrics_topk`
 - Preview images (optional but helpful):
-  - `bot/plans/inverse-design/code/artifacts/progress/previews/topk_step-<step>_k-<k>.png`
+  - `data/progress/previews/topk_step-<step>_k-<k>.png`
 
 성능 제약:
 - `log_every_n_steps`를 config로 노출하고 기본값을 10~50 사이로.

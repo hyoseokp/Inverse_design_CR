@@ -4,14 +4,14 @@
 블루프린트 규칙대로 **대각선 대칭을 loss가 아니라 파라미터화에서 구조적으로 강제**하는 seed 생성 모듈을 구현한다.
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
-- `bot/plans/inverse-design/repository-structure-mapping.md` (generator/seed_param.py 매핑 참고)
+- `color-router-inverse-design-blueprint-v1.3.md`
+- `repository-structure-mapping.md` (generator/seed_param.py 매핑 참고)
 - Task-01 outputs:
-  - `bot/plans/inverse-design/code/inverse_design/config.py`
+  - `src/crinv/config.py`
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/seed.py`
-- (create) `bot/plans/inverse-design/code/tests/test_seed_symmetry.py`
+- (create) `src/crinv/seed.py`
+- (create) `tests/test_seed_symmetry.py`
 
 ## Constraints
 - ❌ 금지: symmetry loss, step 후 symmetrize, upper-triangle hack

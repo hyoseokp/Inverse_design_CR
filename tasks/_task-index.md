@@ -1,8 +1,8 @@
 # Inverse Design Task Index (Color Router)
 
 Source spec:
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
-- **Repo structure mapping:** `bot/plans/inverse-design/repository-structure-mapping.md`
+- `color-router-inverse-design-blueprint-v1.3.md`
+- **Repo structure mapping:** `repository-structure-mapping.md`
 
 ## Testing policy
 - (B) Minimal tests per task + final integration verify task.

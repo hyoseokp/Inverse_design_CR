@@ -7,9 +7,9 @@
 - Task-01..09 outputs
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/cli.py`
-- (create) `bot/plans/inverse-design/code/REPORTS/integration-verify.summary.md`
-- (create) `bot/plans/inverse-design/code/REPORTS/integration-verify.log.md`
+- (create) `src/crinv/cli.py`
+- (create) `REPORTS/integration-verify.summary.md`
+- (create) `REPORTS/integration-verify.log.md`
 
 ## Constraints
 - 실제 Lumerical 실행은 환경 의존이므로, 기본 integration verify는:
@@ -19,14 +19,14 @@
   위주로 구성.
 
 ## Acceptance criteria
-- `python -m inverse_design.cli --help`가 동작.
+- `python -m scripts.run_inverse --help` 또는 `python -m scripts.run_inverse -h` 같은 형태의 CLI 엔트리가 동작.
 - integration verify 리포트가 생성되고 PASS/FAIL 기준이 명확.
 
 ## Dependencies
 - Task-01..09
 
 ## Verification
-- `python -m inverse_design.cli --dry-run`
+- `python -m scripts.run_inverse --dry-run`
 
 ## Rollback notes
 - cli.py 및 REPORTS 삭제.

@@ -9,16 +9,16 @@
 - Top-M 최종 디자인 선정
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
+- `color-router-inverse-design-blueprint-v1.3.md`
 - Task-04 spectral utilities
 - Task-06 surrogate candidates exports
 - Task-08 FDTD run outputs (spectra)
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/postprocess.py`
-- (create) `bot/plans/inverse-design/code/inverse_design/ranking.py`
-- (create) `bot/plans/inverse-design/code/tests/test_ranking_smoke.py`
-- (create) `bot/plans/inverse-design/code/artifacts/final/.gitkeep`
+- (create) `src/crinv/postprocess.py`
+- (create) `src/crinv/ranking.py`
+- (create) `tests/test_ranking_smoke.py`
+- (create) `data/final/.gitkeep`
 
 ## Constraints
 - downsample 함수는 training과 동일해야 하므로, 기본은 인터페이스/플러그인 형태로 두고 교체 가능하게.

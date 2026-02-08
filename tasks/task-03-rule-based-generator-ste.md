@@ -6,16 +6,16 @@
 그리고 inverse 내부에서는 **Forward는 hard binary**, **Backward는 STE**로 gradient가 `u`를 통해 흐르도록 한다.
 
 ## Inputs
-- `bot/plans/inverse-design/color-router-inverse-design-blueprint-v1.3.md`
-- `bot/plans/inverse-design/repository-structure-mapping.md` (generator/rule_base.py 매핑 참고)
+- `color-router-inverse-design-blueprint-v1.3.md`
+- `repository-structure-mapping.md` (generator/rule_base.py 매핑 참고)
 - Task-01 outputs (config/constants)
 - Task-02 output (seed symmetry)
 
 ## Outputs
-- (create) `bot/plans/inverse-design/code/inverse_design/generator.py`
-- (create) `bot/plans/inverse-design/code/inverse_design/ops.py` (blur/upsample/STE 유틸)
-- (create) `bot/plans/inverse-design/code/tests/test_generator_shapes.py`
-- (create) `bot/plans/inverse-design/code/tests/test_ste_threshold.py`
+- (create) `src/crinv/generator.py`
+- (create) `src/crinv/ops.py` (blur/upsample/STE 유틸)
+- (create) `tests/test_generator_shapes.py`
+- (create) `tests/test_ste_threshold.py`
 
 ## Constraints
 - Generator는 **학습 데이터 생성/Inverse/FDTD 검증** 모두 동일하게 재사용 가능한 형태여야 함.
