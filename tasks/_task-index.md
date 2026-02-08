@@ -19,7 +19,7 @@ Source spec:
 9. **Task-09** Post-processing + ranking by FDTD + surrogate-vs-FDTD error report
 10. **Task-10** Local dashboard (loss graph + top-K previews during optimization)
 11. **Task-11** End-to-end CLI + integration verify (dry-run + minimal e2e on mock)
-12. **Task-12 (Optional)** Active loop: dataset append + surrogate fine-tune hooks
+12. **Task-12 (Optional)** Active loop (Top-K → Top-M FDTD validate → dataset append → forward fine-tune → inverse re-run)
 
 ## Dependency graph (DAG)
 - Task-01 → {02,03,04}
@@ -28,7 +28,7 @@ Source spec:
 - 07 → 08 → 09
 - 09 → 10
 - 10 → 11
-- 11 → (Optional) 12
+- 11 → (Optional) 12 (12-01→12-02→12-03)
 
 ## Reference code (FDTD)
 - `hyoseokp/data_CR/data_gen.ipynb`
@@ -45,4 +45,7 @@ Source spec:
 01 → 03 → 05 → 06 → 07 → 08 → 09 → 10 → 11
 
 ## Status
-- Task-01..12: PENDING
+- Task-01..11: PENDING
+- Task-12 (folder): PENDING
+  - Task-12-01..12-03: PENDING
+
