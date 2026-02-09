@@ -12,6 +12,9 @@ generator:
   threshold_temp: 0.05
   mfs_radius_px: 5
   mfs_iters: 4
+  mfs_kernel: "soft_circle"
+  mfs_soft_beta: 20.0
+  mfs_dist_scale: 0.25
 
 spectra:
   n_channels: 30   # or 301

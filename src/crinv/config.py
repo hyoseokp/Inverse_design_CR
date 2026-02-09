@@ -30,6 +30,10 @@ class GeneratorConfig(BaseModel):
     threshold_temp: float = 0.05  # soft threshold temperature for sigmoid((u-tau)/temp)
     mfs_radius_px: int = 5  # ~ MIN_FEATURE_SIZE/2 in user's script (10 -> 5)
     mfs_iters: int = 2  # keep small; each iter does opening+closing for solid+void
+    mfs_kernel: Literal["square", "soft_circle"] = "soft_circle"
+    # soft_circle params: higher beta -> closer to hard max/min; dist_scale -> stronger center bias
+    mfs_soft_beta: float = 20.0
+    mfs_dist_scale: float = 0.25
 
 
 class SpectraConfig(BaseModel):
