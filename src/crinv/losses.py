@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import torch
+import torch.nn.functional as F
 
 from .config import InverseDesignConfig
 from .generator import generate_u_and_binary
@@ -82,34 +83,35 @@ def compute_loss_from_surrogate(
     )
 
     eps = float(cfg.loss.epsilon)
-    # ratio separation: sum_b log((O_b+eps)/(D_b+eps))
+    alpha = float(getattr(cfg.loss, "margin_alpha", 0.3))
+
+    # Stable separation margin: penalize leakage exceeding a fraction of diagonal.
+    # (Replaces log-ratio which tends to cause large gradients when D is small.)
     loss_ratio = (
-        torch.log((m.O_R + eps) / (m.D_R + eps))
-        + torch.log((m.O_G + eps) / (m.D_G + eps))
-        + torch.log((m.O_B + eps) / (m.D_B + eps))
+        F.softplus(m.O_R - alpha * m.D_R)
+        + F.softplus(m.O_G - alpha * m.D_G)
+        + F.softplus(m.O_B - alpha * m.D_B)
     )
-    # absolute efficiency: sum_b (1 - D_b)
-    loss_abs = (1.0 - m.D_R) + (1.0 - m.D_G) + (1.0 - m.D_B)
-    # Out-of-band absolute penalty (prevents "everything transmits" degenerate solutions)
-    loss_oob = m.O_R + m.O_G + m.O_B
+
+    # Diagonal efficiency (smoother than linear): push D_b -> 1.
+    loss_abs = (1.0 - m.D_R) ** 2 + (1.0 - m.D_G) ** 2 + (1.0 - m.D_B) ** 2
+
+    # Leakage penalty: square to avoid "always-on" shrink and to stabilize gradients.
+    loss_oob = (m.O_R ** 2) + (m.O_G ** 2) + (m.O_B ** 2)
 
     # Crosstalk purity: for each band (column), normalize across colors, target identity.
     # We enforce purity in two ways:
     #  1) Column-wise (band-conditional): P_{c|b} = A_{c,b} / sum_c A_{c,b} -> discourage other colors inside each band.
     #  2) Row-wise (color-conditional):  Q_{b|c} = A_{c,b} / sum_b A_{c,b} -> discourage a color spilling into other bands.
     #
-    # Combined loss uses negative log-likelihood of diagonal for both normalizations.
+    # Combined loss uses squared distance to Identity for both normalizations (more stable than log-diag).
     colsum = A.sum(dim=-2)  # [B,3]
     P = A / (colsum.unsqueeze(-2) + eps)
-    diag = torch.stack([P[:, 0, 0], P[:, 1, 1], P[:, 2, 2]], dim=-1)
-    loss_purity_col = -torch.log(diag + eps).sum(dim=-1)
 
     rowsum = A.sum(dim=-1)  # [B,3]
     Q = A / (rowsum.unsqueeze(-1) + eps)
-    diag2 = torch.stack([Q[:, 0, 0], Q[:, 1, 1], Q[:, 2, 2]], dim=-1)
-    loss_purity_row = -torch.log(diag2 + eps).sum(dim=-1)
-
-    loss_purity = loss_purity_col + loss_purity_row
+    I = torch.eye(3, device=A.device, dtype=A.dtype).unsqueeze(0)  # (1,3,3)
+    loss_purity = ((P - I) ** 2).sum(dim=(1, 2)) + ((Q - I) ** 2).sum(dim=(1, 2))
 
     loss_gray = gray_penalty(u)
     loss_tv = total_variation_2d(u)

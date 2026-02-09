@@ -240,17 +240,15 @@ d=\mathrm{diag}(A)\in\mathbb{R}^3,\quad
 c=A^\top\mathbf{1}\in\mathbb{R}^3,\quad
 O=\tfrac12(c-d).\\
 &\qquad
-L_{\mathrm{ratio}}=\mathbf{1}^\top\!\left(\log(O+\varepsilon\mathbf{1})-\log(d+\varepsilon\mathbf{1})\right),\quad
-L_{\mathrm{abs}}=\mathbf{1}^\top(\mathbf{1}-d),\quad
-L_{\mathrm{oob}}=\mathbf{1}^\top O.\\
+L_{\mathrm{ratio}}=\mathbf{1}^\top\,\mathrm{softplus}\!\left(O-\alpha d\right),\quad
+L_{\mathrm{abs}}=\lVert \mathbf{1}-d\rVert_2^2,\quad
+L_{\mathrm{oob}}=\lVert O\rVert_2^2.\\
 &\qquad
 P=A\,\mathrm{diag}(c+\varepsilon\mathbf{1})^{-1},\quad
 r=A\mathbf{1},\quad
 Q=\mathrm{diag}(r+\varepsilon\mathbf{1})^{-1}A,\\
 &\qquad
-L_{\mathrm{purity}}=
--\mathbf{1}^\top\log(\mathrm{diag}(P)+\varepsilon\mathbf{1})
--\mathbf{1}^\top\log(\mathrm{diag}(Q)+\varepsilon\mathbf{1}).\\[10pt]
+L_{\mathrm{purity}}=\lVert P-I\rVert_F^2+\lVert Q-I\rVert_F^2.\\[10pt]
 &\textbf{In-band / out-of-band:}\quad
 D_R=A_{R,R},\ D_G=A_{G,G},\ D_B=A_{B,B},\\
 &\qquad
@@ -258,18 +256,16 @@ O_R=\tfrac12(A_{G,R}+A_{B,R}),\
 O_G=\tfrac12(A_{R,G}+A_{B,G}),\ 
 O_B=\tfrac12(A_{R,B}+A_{G,B}).\\[10pt]
 &\textbf{Spectral loss:}\quad
-L_{\mathrm{ratio}}=\sum_{b\in\{R,G,B\}}\log\frac{O_b+\varepsilon}{D_b+\varepsilon},\quad
-L_{\mathrm{abs}}=\sum_{b}(1-D_b),\quad
-L_{\mathrm{oob}}=\sum_{b}O_b,\\
+L_{\mathrm{ratio}}=\sum_{b\in\{R,G,B\}}\mathrm{softplus}(O_b-\alpha D_b),\quad
+L_{\mathrm{abs}}=\sum_{b}(1-D_b)^2,\quad
+L_{\mathrm{oob}}=\sum_{b}O_b^2,\\
 &\qquad
 L_{\mathrm{purity}}=
 L_{\mathrm{purity}}^{(\mathrm{col})}+L_{\mathrm{purity}}^{(\mathrm{row})},\\
 &\qquad
-L_{\mathrm{purity}}^{(\mathrm{col})}=
--\sum_{b\in\{R,G,B\}}\log\left(\frac{A_{b,b}}{\sum_{c\in\{R,G,B\}}A_{c,b}+\varepsilon}+\varepsilon\right),\\
+L_{\mathrm{purity}}^{(\mathrm{col})}=\lVert P-I\rVert_F^2,\qquad P=A\,\mathrm{diag}(c+\varepsilon\mathbf{1})^{-1},\\
 &\qquad
-L_{\mathrm{purity}}^{(\mathrm{row})}=
--\sum_{c\in\{R,G,B\}}\log\left(\frac{A_{c,c}}{\sum_{b\in\{R,G,B\}}A_{c,b}+\varepsilon}+\varepsilon\right),\\
+L_{\mathrm{purity}}^{(\mathrm{row})}=\lVert Q-I\rVert_F^2,\qquad Q=\mathrm{diag}(r+\varepsilon\mathbf{1})^{-1}A,\\
 &\qquad
 L_{\mathrm{spec}}=
 w_{\mathrm{ratio}}L_{\mathrm{ratio}}+

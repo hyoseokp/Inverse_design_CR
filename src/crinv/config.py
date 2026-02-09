@@ -32,11 +32,14 @@ class SpectraConfig(BaseModel):
 
 class LossConfig(BaseModel):
     epsilon: float = 1.0e-6
-    w_ratio: float = 1.0
-    w_abs: float = 0.2
+    # Separation margin term (softplus) weight and hyperparameter.
+    w_ratio: float = 0.1
+    margin_alpha: float = 0.3
+    # Diagonal (in-band) efficiency and off-diagonal leakage penalties.
+    w_abs: float = 1.0
     w_oob: float = 1.0
     # Crosstalk purity: column-normalized A_{c,b} should approach Identity(3).
-    w_purity: float = 0.5
+    w_purity: float = 0.2
     w_gray: float = 0.1
     w_tv: float = 0.01
 
