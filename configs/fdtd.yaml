@@ -1,0 +1,15 @@
+# FDTD config (skeleton). Running real lumapi/FDTD is Approval required (see common_context_prompt.md).
+fdtd:
+  lumerical_root: ""
+  template_fsp: ""
+  hide: true
+  chunk_size: 8
+  max_retries: 2
+  timeout_s:
+    import: 120
+    run: 600
+    extract: 120
+
+paths:
+  paths_yaml: "configs/paths.example.yaml"
+

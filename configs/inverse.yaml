@@ -1,0 +1,35 @@
+# Inverse optimization config (skeleton)
+seed_size: 16
+struct_size: 128
+
+generator:
+  sigma_set: [0.8, 1.0, 1.2]
+  tau0: 0.5
+  delta_tau: 0.05
+
+spectra:
+  n_channels: 30   # or 301
+  band_ranges_nm:
+    B: [400.0, 500.0]
+    G: [500.0, 600.0]
+    R: [600.0, 700.0]
+
+loss:
+  epsilon: 1.0e-6
+  w_ratio: 1.0
+  w_abs: 0.2
+  w_oob: 1.0
+  w_gray: 0.1
+  w_tv: 0.01
+
+opt:
+  n_start: 200
+  n_steps: 2000
+  lr: 0.01
+  topk: 50
+  robustness_samples: 8
+  log_every_n_steps: 25
+  random_seed: 0
+
+paths:
+  paths_yaml: "configs/paths.yaml"

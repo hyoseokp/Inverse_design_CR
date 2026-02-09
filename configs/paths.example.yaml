@@ -1,0 +1,17 @@
+# Example local paths (copy to paths.yaml for your machine; do not commit paths.yaml)
+project_root: "."
+
+# Large artifacts should live under data/ (recommended git-excluded)
+data_dir: "data"
+forward_ckpt_dir: "data/forward_ckpt"
+inverse_runs_dir: "data/inverse_runs"
+gds_valid_dir: "data/gds_valid"
+fdtd_results_dir: "data/fdtd_results"
+progress_dir: "data/progress"
+wavelength_dir: "data/wavelength"
+
+# External references (fill in locally)
+forward_model_root: ""   # e.g., "C:/path/to/data_CR/code/CR_recon"
+lumerical_root: ""       # e.g., "C:/Program Files/Lumerical/v241"
+fdtd_template_fsp: ""    # e.g., "C:/path/to/air_SiN_2um_NA.fsp"
+

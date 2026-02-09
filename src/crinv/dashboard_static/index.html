@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>CR Inverse Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="window.chartJsLoadFailed=true;"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.css" onerror="window.katexLoadFailed=true;">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/katex.min.js" onerror="window.katexLoadFailed=true;"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.0/dist/contrib/auto-render.min.js" onerror="window.katexLoadFailed=true;"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      :root {
+        --bg: #f1f5f9;
+        --card: #ffffff;
+        --header-bg: #0f172a;
+        --text: #1e293b;
+        --muted: #94a3b8;
+        --border: #e2e8f0;
+        --accent: #6366f1;
+        --good: #22c55e;
+        --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+        --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+        --radius: 10px;
+        --panel-aspect: 2 / 1;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        padding: 16px;
+        min-height: 100vh;
+      }
+      .header {
+        background: var(--header-bg);
+        color: white;
+        padding: 14px 20px;
+        border-radius: var(--radius);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .header-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
+      .header-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+        background: #1e293b;
+        padding: 6px 10px;
+        border-radius: 999px;
+      }
+      .dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
+      .dot.on { background: var(--good); box-shadow: 0 0 6px var(--good); }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+      .row2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        align-items: start;
+      }
+      @media (max-width: 960px) {
+        .row2 { grid-template-columns: 1fr; }
+      }
+      .card {
+        background: var(--card);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-md);
+        border: 1px solid var(--border);
+        padding: 14px 16px;
+      }
+      .panel {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .kpi { font-size: 12px; color: #64748b; }
+      .kpi b { color: var(--text); }
+      .bar {
+        width: 100%; height: 6px; border-radius: 999px;
+        background: #e5e7eb; overflow: hidden; margin-top: 8px;
+      }
+      .bar > div {
+        height: 100%; width: 0%;
+        background: linear-gradient(90deg, #60a5fa, #34d399);
+        transition: width 0.2s ease;
+      }
+      .segmented {
+        display: inline-flex;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: #f8fafc;
+      }
+      .seg-btn {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: #475569;
+        padding: 6px 10px;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        border-right: 1px solid var(--border);
+      }
+      .seg-btn:last-child { border-right: 0; }
+      .seg-btn.active { background: #0f172a; color: white; }
+      /* Keep optima + spectrum chart areas the same height. */
+      .chartBox {
+        position: relative;
+        width: 100%;
+        height: 360px;
+        margin-top: 10px;
+      }
+      .chartBox canvas { width: 100% !important; height: 100% !important; }
+
+      .thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+      @media (max-width: 960px) { .thumbs { grid-template-columns: repeat(3, 1fr); } }
+      @media (max-width: 600px) { .thumbs { grid-template-columns: repeat(2, 1fr); } }
+      .thumb {
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px;
+        background: #f8fafc;
+        cursor: pointer;
+      }
+      .thumb.sel { outline: 2px solid var(--accent); }
+      .thumb img { width: 100%; border-radius: 8px; image-rendering: pixelated; display: block; }
+      .cap { font-size: 11px; color: #64748b; margin-top: 6px; }
+      .hint { font-size: 11px; color: #64748b; margin-top: 6px; }
+      .formulaBox {
+        margin-top: 10px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 12px;
+        color: #0f172a;
+        overflow: auto;
+        max-height: 420px;
+      }
+      .formulaLatex {
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div>
+        <div class="header-title">CR Inverse Dashboard</div>
+        <div class="header-sub">Optimization loss, progress, Top-K, and spectrum</div>
+      </div>
+      <div class="status"><span id="dot" class="dot"></span><span id="statusText">disconnected</span></div>
+    </div>
+
+    <div class="grid">
+      <!-- Top row: optima (left) + spectrum (right), same size -->
+      <div class="row2">
+        <div class="card panel">
+        <div class="row">
+          <div class="kpi"><b>Optimization</b> <span id="kpiStep">-</span></div>
+          <div class="row" style="gap:8px">
+            <div class="kpi">Y</div>
+            <div class="segmented" id="scaleToggle">
+              <button class="seg-btn" data-scale="log">Log</button>
+              <button class="seg-btn" data-scale="linear">Linear</button>
+            </div>
+            <div class="kpi">Window</div>
+            <div class="segmented" id="windowToggle">
+              <button class="seg-btn" data-window="all">All</button>
+              <button class="seg-btn" data-window="200">200</button>
+              <button class="seg-btn" data-window="50">50</button>
+            </div>
+          </div>
+        </div>
+        <div class="bar"><div id="progFill"></div></div>
+        <div class="row" style="margin-top:8px">
+          <div class="kpi">loss_total: <b id="kpiLoss">-</b></div>
+        </div>
+        <div class="chartBox"><canvas id="lossChart"></canvas></div>
+        </div>
+
+        <div class="card panel">
+        <div class="row">
+          <div class="kpi"><b>Spectrum</b> <span id="kpiSpec">-</span></div>
+          <div class="kpi" id="specHint">click a thumbnail</div>
+        </div>
+        <div class="chartBox"><canvas id="specChart"></canvas></div>
+      </div>
+      </div>
+
+      <!-- Bottom row: Top-K (left) + Loss formula (right) -->
+      <div class="row2">
+        <div class="card panel">
+          <div class="row">
+            <div class="kpi"><b>Top-K</b> <span id="kpiTopk">-</span></div>
+            <div class="kpi" id="topkHint"></div>
+          </div>
+          <div class="thumbs" id="thumbs"></div>
+          <div class="hint">Tip: click a thumbnail to update spectrum.</div>
+        </div>
+
+        <div class="card panel">
+          <div class="row">
+            <div class="kpi"><b>Loss Definition</b></div>
+            <div class="kpi">robust MC: E_{sigma,tau}[L] (Monte Carlo average)</div>
+          </div>
+          <div class="formulaBox">
+            <div class="formulaLatex" id="lossFormula">$$
+\begin{aligned}
+&\textbf{Surrogate output:}\quad t\in\mathbb{R}^{2\times 2\times C},\qquad
+s=\mathrm{merge}(t)\in\mathbb{R}^{3\times C}\ \ (R,G,B).\\[2pt]
+&\textbf{Band average:}\quad
+A_{c,b}=\frac{1}{\lambda_{b,1}-\lambda_{b,0}}
+\int_{\lambda_{b,0}}^{\lambda_{b,1}} s_c(\lambda)\,d\lambda,
+\qquad c\in\{R,G,B\}.\\[2pt]
+&\textbf{In-band / out-of-band:}\quad
+D_R=A_{R,R},\ D_G=A_{G,G},\ D_B=A_{B,B},\\
+&\qquad
+O_R=\tfrac12(A_{G,R}+A_{B,R}),\ 
+O_G=\tfrac12(A_{R,G}+A_{B,G}),\ 
+O_B=\tfrac12(A_{R,B}+A_{G,B}).\\[4pt]
+&\textbf{Spectral loss:}\quad
+L_{\mathrm{ratio}}=\sum_{b\in\{R,G,B\}}\log\frac{O_b+\varepsilon}{D_b+\varepsilon},\quad
+L_{\mathrm{abs}}=\sum_{b}(1-D_b),\quad
+L_{\mathrm{oob}}=\sum_{b}O_b,\\
+&\qquad
+L_{\mathrm{spec}}=
+w_{\mathrm{ratio}}L_{\mathrm{ratio}}+
+w_{\mathrm{abs}}L_{\mathrm{abs}}+
+w_{\mathrm{oob}}L_{\mathrm{oob}}.\\[4pt]
+&\textbf{Regularization (field }u\in[0,1]^{H\times W}\textbf{):}\quad
+L_{\mathrm{gray}}=\frac{1}{HW}\sum_{i,j} u_{ij}(1-u_{ij}),\quad
+L_{\mathrm{tv}}=\mathrm{mean}(|\nabla_x u|+|\nabla_y u|),\\
+&\qquad
+L_{\mathrm{reg}}=
+w_{\mathrm{gray}}L_{\mathrm{gray}}+
+w_{\mathrm{tv}}L_{\mathrm{tv}}.\\[4pt]
+&\textbf{Total (robust MC):}\quad
+L_{\mathrm{total}}=
+\mathbb{E}_{(\sigma,\tau)}\big[L_{\mathrm{spec}}+L_{\mathrm{reg}}\big]
+\ \approx\ \frac{1}{N}\sum_{n=1}^{N}\big(L_{\mathrm{spec}}^{(n)}+L_{\mathrm{reg}}^{(n)}\big).
+\end{aligned}
+$$</div>
+          </div>
+        </div>
+      </div>
+
+    <script>
+      const dot = document.getElementById('dot');
+      const statusText = document.getElementById('statusText');
+      const kpiStep = document.getElementById('kpiStep');
+      const kpiLoss = document.getElementById('kpiLoss');
+      const progFill = document.getElementById('progFill');
+      const kpiTopk = document.getElementById('kpiTopk');
+      const thumbs = document.getElementById('thumbs');
+      const topkHint = document.getElementById('topkHint');
+      const kpiSpec = document.getElementById('kpiSpec');
+      const specHint = document.getElementById('specHint');
+
+      function setStatus(ok, text){
+        dot.classList.toggle('on', ok);
+        statusText.textContent = text;
+      }
+      async function fetchJSON(url){
+        const r = await fetch(url, {cache:'no-store'});
+        if (!r.ok) throw new Error(String(r.status));
+        return await r.json();
+      }
+
+      const ui = {
+        scale: localStorage.getItem('loss_scale') || 'log',
+        window: localStorage.getItem('loss_window') || 'all',
+        selected: {step:null, idx:0},
+        lastTopkKey: ''
+      };
+
+      function initSegmented(el, key, values){
+        const buttons = Array.from(el.querySelectorAll('.seg-btn'));
+        function sync(){
+          buttons.forEach(b => b.classList.toggle('active', b.dataset[key] === ui[key]));
+        }
+        buttons.forEach(b => {
+          b.addEventListener('click', () => {
+            ui[key] = b.dataset[key];
+            localStorage.setItem('loss_' + key, ui[key]);
+            sync();
+            redraw();
+          });
+        });
+        // default
+        if (!values.includes(ui[key])) ui[key] = values[0];
+        sync();
+      }
+
+      let lossChart = null;
+      let specChart = null;
+
+      function makeLossChart(){
+        const ctx = document.getElementById('lossChart');
+        const gridColor = '#e2e8f0';
+        const tickColor = '#94a3b8';
+        const fontFamily = '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif';
+        lossChart = new Chart(ctx, {
+          type: 'line',
+          data: { labels: [], datasets: [
+            {
+              label: 'loss_total',
+              data: [],
+              borderColor: '#3b82f6',
+              backgroundColor: 'rgba(59,130,246,0.08)',
+              fill: true,
+              borderWidth: 2,
+              tension: 0.4,
+              pointRadius: 0,
+              pointHoverRadius: 4
+            },
+          ]},
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              y: {
+                type: 'logarithmic',
+                grid: { color: gridColor },
+                ticks: { color: tickColor, font: { size: 11, family: fontFamily } },
+                title: {
+                  display: true,
+                  text: (ui.scale === 'linear') ? 'Loss' : 'Loss (log)',
+                  color: tickColor,
+                  font: { size: 12, family: fontFamily }
+                }
+              },
+              x: {
+                grid: { color: gridColor, display: false },
+                ticks: { color: tickColor, font: { size: 11, family: fontFamily }, maxTicksLimit: 20 },
+                title: { display: true, text: 'step', color: tickColor, font: { size: 12, family: fontFamily } }
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: { usePointStyle: true, pointStyle: 'line', font: { size: 12, family: fontFamily } }
+              },
+              tooltip: {
+                backgroundColor: '#0f172a',
+                titleFont: { size: 12, family: fontFamily },
+                bodyFont: { size: 11, family: fontFamily },
+                callbacks: {
+                  label: (ctx) => {
+                    const v = (ctx && ctx.parsed) ? ctx.parsed.y : null;
+                    if (v == null) return 'loss_total: --';
+                    if (!Number.isFinite(v)) return 'loss_total: --';
+                    const s = (v >= 0.01) ? v.toFixed(6) : v.toExponential(3);
+                    return `loss_total: ${s}`;
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+
+      function makeSpecChart(){
+        const ctx = document.getElementById('specChart');
+        const gridColor = '#e2e8f0';
+        const tickColor = '#94a3b8';
+        const fontFamily = '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif';
+        specChart = new Chart(ctx, {
+          type: 'line',
+          data: { labels: [], datasets: [
+            { label: 'R', data: [], borderColor: '#ef4444', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+            { label: 'G', data: [], borderColor: '#22c55e', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+            { label: 'B', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+          ]},
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: tickColor, font: { size: 10, family: fontFamily }, maxTicksLimit: 20 },
+                title: { display: true, text: 'wavelength (nm)', color: tickColor, font: { size: 11, family: fontFamily } }
+              },
+              y: {
+                grid: { color: gridColor },
+                ticks: { color: tickColor, font: { size: 10, family: fontFamily } },
+                title: { display: true, text: 'intensity', color: tickColor, font: { size: 11, family: fontFamily } }
+              }
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'top',
+                labels: { usePointStyle: true, pointStyle: 'line', font: { size: 11, family: fontFamily }, boxWidth: 20 }
+              },
+              tooltip: {
+                backgroundColor: '#0f172a',
+                titleFont: { size: 12, family: fontFamily },
+                bodyFont: { size: 11, family: fontFamily }
+              }
+            }
+          }
+        });
+      }
+
+      function updateLossScale(){
+        if (!lossChart) return;
+        lossChart.options.scales.y.type = (ui.scale === 'log') ? 'logarithmic' : 'linear';
+        if (lossChart.options.scales.y.title) {
+          lossChart.options.scales.y.title.text = (ui.scale === 'linear') ? 'Loss' : 'Loss (log)';
+        }
+      }
+
+      let lastStatus = null;
+
+      async function redraw(){
+        // use cached status to update chart options quickly
+        if (lastStatus) {
+          applyStatus(lastStatus);
+        }
+      }
+
+      function applyStatus(st){
+        const meta = st.meta || {};
+        const series = st.series || {};
+        const steps = series.steps || [];
+        const total = Number(meta.n_steps);
+
+        const latest = st.latest || {};
+        const curStep = Number(latest.step);
+        if (Number.isFinite(curStep)) {
+          kpiStep.textContent = (Number.isFinite(total) && total>0) ? `(step ${curStep} / ${total-1})` : `(step ${curStep})`;
+          if (Number.isFinite(total) && total>0) {
+            const pct = Math.max(0, Math.min(1, curStep / Math.max(1, total-1))) * 100;
+            progFill.style.width = pct.toFixed(1) + '%';
+          }
+        }
+        const lt = Number(latest.loss_total);
+        kpiLoss.textContent = Number.isFinite(lt) ? lt.toFixed(6) : '-';
+
+        // windowing
+        let windowN = ui.window === 'all' ? null : Number(ui.window);
+        let startIdx = 0;
+        if (windowN && steps.length > windowN) startIdx = steps.length - windowN;
+
+        const x = steps.slice(startIdx);
+        const yTotal = (series.loss_total || []).slice(startIdx);
+
+        updateLossScale();
+        lossChart.data.labels = x.map(String);
+        lossChart.data.datasets[0].data = yTotal;
+        lossChart.update();
+      }
+
+      async function tick(){
+        try{
+          await fetchJSON('/api/ping');
+          setStatus(true, 'live');
+        } catch(e) {
+          setStatus(false, 'disconnected');
+          return;
+        }
+
+        try{
+          const st = await fetchJSON('/api/status?window=all');
+          lastStatus = st;
+          applyStatus(st);
+        } catch(e) { /* ignore */ }
+
+        // TopK
+        try{
+          const t = await fetchJSON('/api/topk/latest');
+          if (t.step == null) {
+            kpiTopk.textContent = '(no snapshot)';
+            thumbs.innerHTML = '';
+            topkHint.textContent = '';
+            return;
+          }
+          const key = String(t.step) + ':' + String(t.k);
+          kpiTopk.textContent = `(step ${t.step}, K=${t.k})`;
+          if (key !== ui.lastTopkKey) {
+            ui.lastTopkKey = key;
+            const imgs = t.images || [];
+            const fill = t.fill_frac || [];
+            const best = (t.metrics && t.metrics.metric_best_loss) ? t.metrics.metric_best_loss : null;
+            let html = '';
+            const maxShow = Math.min(imgs.length, 8);
+            for (let i=0;i<maxShow;i++){
+              const src = imgs[i] + '?v=' + encodeURIComponent(String(t.step));
+              const cap = [
+                best && best[i]!=null ? `best_loss=${Number(best[i]).toFixed(6)}` : null,
+                fill && fill[i]!=null ? `fill=${Number(fill[i]).toFixed(3)}` : null
+              ].filter(Boolean).join('  ') || `k=${i}`;
+              html += `<div class="thumb" data-step="${t.step}" data-idx="${i}"><img src="${src}" /><div class="cap">${cap}</div></div>`;
+            }
+            thumbs.innerHTML = html;
+            topkHint.textContent = 'click a thumb to plot spectrum';
+
+            // auto-select k=0
+            ui.selected.step = t.step;
+            ui.selected.idx = 0;
+            await loadSpectrum(t.step, 0);
+          }
+        } catch(e) { /* ignore */ }
+      }
+
+      async function loadSpectrum(step, idx){
+        kpiSpec.textContent = `(step ${step}, k=${idx})`;
+        try{
+          const s = await fetchJSON(`/api/topk/${step}/${idx}/spectrum`);
+          const rgb = s.rgb || null;
+          if (!rgb) throw new Error('no rgb');
+          const C = rgb[0].length;
+          // Default wavelength grid: 400..700 nm, evenly spaced over C channels.
+          const wl = Array.from({length: C}, (_,i) => 400 + (300 * i) / Math.max(1, (C - 1)));
+          specChart.data.labels = wl.map(v => v.toFixed(0));
+          specChart.data.datasets[0].data = rgb[0];
+          specChart.data.datasets[1].data = rgb[1];
+          specChart.data.datasets[2].data = rgb[2];
+          specChart.update();
+          specHint.textContent = `forward model output: 3x${C} (400-700 nm)`;
+        } catch(e) {
+          specHint.textContent = 'spectrum unavailable (surrogate not configured)';
+        }
+      }
+
+      thumbs.addEventListener('click', async (ev) => {
+        const el = ev.target.closest('.thumb');
+        if (!el) return;
+        const step = el.getAttribute('data-step');
+        const idx = el.getAttribute('data-idx');
+        if (step == null || idx == null) return;
+        Array.from(thumbs.querySelectorAll('.thumb')).forEach(x => x.classList.toggle('sel', x === el));
+        await loadSpectrum(step, idx);
+      });
+
+      initSegmented(document.getElementById('scaleToggle'), 'scale', ['log','linear']);
+      initSegmented(document.getElementById('windowToggle'), 'window', ['all','200','50']);
+      makeLossChart();
+      makeSpecChart();
+
+      function renderLatex(){
+        const el = document.getElementById('lossFormula');
+        if (!el) return;
+        if (!window.renderMathInElement) return;
+        try {
+          renderMathInElement(el, {
+            delimiters: [{left:'$$', right:'$$', display:true}, {left:'$', right:'$', display:false}]
+          });
+        } catch(e) {}
+      }
+      // KaTeX scripts are loaded with `defer`, so render on load (reference style).
+      window.addEventListener('load', () => {
+        renderLatex();
+        // If KaTeX is a little late (slow CDN), retry briefly.
+        let tries = 0;
+        const timer = setInterval(() => {
+          tries += 1;
+          if (window.renderMathInElement) renderLatex();
+          if (tries >= 6 || window.renderMathInElement) clearInterval(timer);
+        }, 250);
+      });
+
+      tick();
+      setInterval(tick, 1200);
+    </script>
+  </body>
+</html>

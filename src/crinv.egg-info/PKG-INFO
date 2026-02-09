@@ -1,0 +1,39 @@
+Metadata-Version: 2.4
+Name: crinv
+Version: 0.1.0
+Summary: Color Router inverse design pipeline
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy>=1.24
+Requires-Dist: pydantic>=2.6
+Requires-Dist: pyyaml>=6.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+
+# Color Router Inverse Design (CR Inverse)
+
+End-to-end inverse design pipeline for the Color Router structure:
+
+- Symmetric `16x16` real seed parameterization (structural `y=x` symmetry)
+- Rule-based generator -> `128x128` binary structure
+- Frozen forward surrogate evaluation (`128x128 -> 2x2x30` or `2x2x301`)
+- Inverse optimization (multi-start + robustness)
+- Top-K selection -> GDS export -> Lumerical FDTD validation (Top-M)
+- Ranking by FDTD (not surrogate)
+
+## Docs (source of truth)
+- Blueprint/spec: `color-router-inverse-design-blueprint-v1.3.md`
+- Repo structure mapping: `repository-structure-mapping.md`
+- Task contracts: `tasks/`
+- Global common context: `common_context_prompt.md`
+
+## Quick start (Task-01)
+
+Create a virtual env, then:
+
+```bash
+pip install -e ".[dev]"
+pytest -q
+python -c "from crinv.config import InverseDesignConfig; print(InverseDesignConfig())"
+```
+

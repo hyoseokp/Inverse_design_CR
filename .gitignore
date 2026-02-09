@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Local machine config
+configs/paths.yaml
+
+# Project artifacts
+REPORTS/
+orchestrator.log
+
+# Keep directory placeholders for contracts, but ignore large artifacts.
+data/*
+!data/**/.gitkeep
