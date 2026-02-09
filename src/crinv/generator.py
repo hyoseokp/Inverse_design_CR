@@ -10,6 +10,7 @@ from .config import GeneratorConfig
 from .ops import gaussian_blur_2d, sample_sigma_tau, ste_threshold, upsample_bicubic_2d, upsample_bilinear_2d
 
 _NN_CACHE: dict[tuple[str, str], torch.nn.Module] = {}
+_SOFT_CIRCLE_KERNEL_CACHE: dict[tuple[str, str, int, float, float], torch.Tensor] = {}
 
 
 def _load_yaml_dict(path: str | Path) -> dict:
@@ -160,28 +161,34 @@ def generate_u_and_binary_cfg(
         def _soft_circle_dilate(x: torch.Tensor, rad: int) -> torch.Tensor:
             if rad <= 0:
                 return x
-            # logsumexp over a circular neighborhood with distance penalty to bias toward center.
+            # Memory-efficient logsumexp approximation via conv2d:
+            # logsumexp(beta*(x + bias)) = log( sum exp(beta*x) * exp(beta*bias) )
+            # y = (1/beta) * log(conv2d(exp(beta*x), w)) where w = exp(beta*bias) masked to a circle.
+            #
+            # This avoids materializing unfold patches (k*k*H*W).
             k = 2 * rad + 1
+            key = (str(x.device), str(x.dtype), int(rad), float(beta), float(dist_scale))
+            w = _SOFT_CIRCLE_KERNEL_CACHE.get(key)
+            if w is None:
+                yy, xx = torch.meshgrid(
+                    torch.arange(-rad, rad + 1, device=x.device, dtype=torch.float32),
+                    torch.arange(-rad, rad + 1, device=x.device, dtype=torch.float32),
+                    indexing="ij",
+                )
+                dist2 = (xx * xx) + (yy * yy)
+                mask = (dist2 <= float(rad * rad)).to(dtype=torch.float32)
+                bias = (-float(dist_scale)) * dist2
+                w2 = torch.exp(torch.clamp(float(beta) * bias, min=-80.0, max=0.0)) * mask
+                w = w2.to(device=x.device, dtype=x.dtype).view(1, 1, k, k)
+                _SOFT_CIRCLE_KERNEL_CACHE[key] = w
+
             x4 = _pad_circ(x, rad).unsqueeze(1)  # (B,1,H+2r,W+2r)
-            B0, _C0, H0, W0 = x4.shape
-            H = H0 - 2 * rad
-            W = W0 - 2 * rad
-
-            patches = F.unfold(x4, kernel_size=k, padding=0, stride=1)  # (B, k*k, H*W)
-            # Build (k*k,) bias once per call.
-            yy, xx = torch.meshgrid(
-                torch.arange(-rad, rad + 1, device=x.device, dtype=x.dtype),
-                torch.arange(-rad, rad + 1, device=x.device, dtype=x.dtype),
-                indexing="ij",
-            )
-            dist2 = (xx * xx) + (yy * yy)
-            mask = (dist2 <= float(rad * rad)).to(dtype=x.dtype)
-            bias = -dist_scale * dist2  # (k,k)
-            bias = bias * mask + (-1.0e9) * (1.0 - mask)  # outside circle => -inf
-            bias = bias.reshape(1, k * k, 1)
-
-            y = (1.0 / beta) * torch.logsumexp(beta * (patches + bias), dim=1)  # (B, H*W)
-            return y.view(B0, H, W)
+            # exp(beta*x) can overflow if beta is huge; clamp is cheap and safe here.
+            xb = torch.clamp(float(beta) * x4, min=-80.0, max=50.0)
+            ex = torch.exp(xb)
+            z = F.conv2d(ex, w, stride=1, padding=0)  # (B,1,H,W)
+            y = (1.0 / float(beta)) * torch.log(z + 1.0e-12)
+            return y[:, 0]
 
         def _dilate(x: torch.Tensor, rad: int) -> torch.Tensor:
             if rad <= 0:
