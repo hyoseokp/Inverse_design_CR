@@ -219,27 +219,24 @@
           <div class="formulaBox">
             <div class="formulaLatex" id="lossFormula">$$
 \begin{aligned}
-\textbf{Surrogate:}\quad t\in\mathbb{R}^{2\times 2\times C},\qquad
-s=\mathrm{merge}(t)\in\mathbb{R}^{3\times C}\ \ (R,G,B).\\[8pt]
-\textbf{Purity matrix (30ch bins):}\quad
-I_B=\{0,\dots,9\},\ I_G=\{10,\dots,19\},\ I_R=\{20,\dots,29\},\\
-&\qquad
-A_{c,b}=\frac{1}{|I_b|}\sum_{k\in I_b} s_{c,k},\qquad
-A\in\mathbb{R}^{3\times 3}\ (c\in\{R,G,B\},\, b\in\{R,G,B\}).\\[10pt]
-\textbf{Spectral loss:}\quad
-L_{\mathrm{purity}}=\lVert A-I\rVert_F^2,\qquad
-L_{\mathrm{abs}}=\lVert \mathbf{1}-\mathrm{diag}(A)\rVert_2^2,\\
-&\qquad
-L_{\mathrm{spec}}=
-w_{\mathrm{purity}}L_{\mathrm{purity}}+
-w_{\mathrm{abs}}L_{\mathrm{abs}}.\\[10pt]
-\textbf{Regularization:}\quad
-L_{\mathrm{reg}}=
-w_{\mathrm{gray}}\;\mathrm{mean}\big(u(1-u)\big)+
-w_{\mathrm{tv}}\;\mathrm{TV}(u).\\[10pt]
-\textbf{Total (robust MC):}\quad
-L_{\mathrm{total}}=
-\mathbb{E}_{(\sigma,\tau)}\big[L_{\mathrm{spec}}+L_{\mathrm{reg}}\big]
+&\textbf{Surrogate:}\\
+&\qquad t\in\mathbb{R}^{2\times 2\times C},\qquad
+s=\mathrm{merge}(t)\in\mathbb{R}^{3\times C}\ (R,G,B).\\[8pt]
+&\textbf{Purity matrix (30ch bins):}\\
+&\qquad I_B=\{0,\dots,9\},\quad I_G=\{10,\dots,19\},\quad I_R=\{20,\dots,29\}.\\
+&\qquad A_{c,b}=\frac{1}{|I_b|}\sum_{k\in I_b} s_{c,k},\qquad
+A\in\mathbb{R}^{3\times 3}.\\[10pt]
+&\textbf{Spectral loss:}\\
+&\qquad L_{\mathrm{purity}}=\lVert A-I\rVert_F^2.\\
+&\qquad L_{\mathrm{abs}}=\lVert \mathbf{1}-\mathrm{diag}(A)\rVert_2^2.\\
+&\qquad L_{\mathrm{spec}}=
+w_{\mathrm{purity}}L_{\mathrm{purity}}+w_{\mathrm{abs}}L_{\mathrm{abs}}.\\[10pt]
+&\textbf{Regularization:}\\
+&\qquad L_{\mathrm{gray}}=\mathrm{mean}\big(u(1-u)\big),\qquad
+L_{\mathrm{tv}}=\mathrm{TV}(u).\\
+&\qquad L_{\mathrm{reg}}=w_{\mathrm{gray}}L_{\mathrm{gray}}+w_{\mathrm{tv}}L_{\mathrm{tv}}.\\[10pt]
+&\textbf{Total (robust MC):}\\
+&\qquad L_{\mathrm{total}}=\mathbb{E}_{(\sigma,\tau)}\big[L_{\mathrm{spec}}+L_{\mathrm{reg}}\big]
 \ \approx\ \frac{1}{N}\sum_{n=1}^{N}\big(L_{\mathrm{spec}}^{(n)}+L_{\mathrm{reg}}^{(n)}\big).
 \end{aligned}
 $$</div>
