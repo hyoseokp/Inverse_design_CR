@@ -6,7 +6,7 @@ generator:
   sigma_set: [0.8, 1.0, 1.2]
   tau0: 0.5
   delta_tau: 0.05
-  backend: "rule"
+  backend: "rule_mfs"
   # rule_mfs knobs (ignored unless backend: rule_mfs)
   threshold_temp: 0.05
   mfs_radius_px: 5
