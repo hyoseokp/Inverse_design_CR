@@ -176,8 +176,11 @@ def generate_u_and_binary_cfg(
                     indexing="ij",
                 )
                 dist2 = (xx * xx) + (yy * yy)
-                mask = (dist2 <= float(rad * rad)).to(dtype=torch.float32)
-                bias = (-float(dist_scale)) * dist2
+                rr = float(max(1, rad * rad))
+                mask = (dist2 <= rr).to(dtype=torch.float32)
+                # Normalize by rad^2 so that dist_scale is comparable across radii.
+                # bias ranges roughly in [-dist_scale, 0] within the circle.
+                bias = (-float(dist_scale)) * (dist2 / rr)
                 w2 = torch.exp(torch.clamp(float(beta) * bias, min=-80.0, max=0.0)) * mask
                 w = w2.to(device=x.device, dtype=x.dtype).view(1, 1, k, k)
                 _SOFT_CIRCLE_KERNEL_CACHE[key] = w
