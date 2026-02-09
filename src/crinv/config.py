@@ -35,6 +35,8 @@ class LossConfig(BaseModel):
     w_ratio: float = 1.0
     w_abs: float = 0.2
     w_oob: float = 1.0
+    # Crosstalk purity: column-normalized A_{c,b} should approach Identity(3).
+    w_purity: float = 0.5
     w_gray: float = 0.1
     w_tv: float = 0.01
 

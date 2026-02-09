@@ -113,6 +113,7 @@ def run_inverse_opt(
                     "loss_total": float(loss.detach().item()),
                     "loss_spec": float(terms.loss_spec.detach().mean().item()),
                     "loss_reg": float(terms.loss_reg.detach().mean().item()),
+                    "loss_purity": float(terms.loss_purity.detach().mean().item()),
                     "D_R": float(terms.metrics.D_R.detach().mean().item()),
                     "D_G": float(terms.metrics.D_G.detach().mean().item()),
                     "D_B": float(terms.metrics.D_B.detach().mean().item()),
@@ -130,6 +131,7 @@ def run_inverse_opt(
                         "loss_total": float(loss.detach().item()),
                         "loss_spec": float(terms.loss_spec.detach().mean().item()),
                         "loss_reg": float(terms.loss_reg.detach().mean().item()),
+                        "loss_purity": float(terms.loss_purity.detach().mean().item()),
                     }
                 )
 

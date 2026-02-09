@@ -5,6 +5,9 @@ from dataclasses import dataclass
 import torch
 
 
+_RGB_ORDER = ("R", "G", "B")
+
+
 def wavelength_grid_nm(n_channels: int, *, start_nm: float = 400.0, end_nm: float = 700.0) -> torch.Tensor:
     """Default wavelength grid for channels.
 
@@ -88,6 +91,43 @@ class BandMetrics:
     O_B: torch.Tensor
 
 
+def crosstalk_matrix_rgb(
+    rgb: torch.Tensor,
+    *,
+    wl_nm: torch.Tensor,
+    band_ranges_nm: dict[str, tuple[float, float]],
+) -> torch.Tensor:
+    """Compute crosstalk/purity matrix A_{c,b} for RGB spectra.
+
+    A_{c,b} is the band-average of output color c over wavelength band b.
+
+    Output:
+      A: (..., 3, 3) where rows are c in (R,G,B) and columns are b in (R,G,B).
+    """
+    if rgb.shape[-2] != 3:
+        raise ValueError(f"rgb must have 3 channels at dim -2, got shape={tuple(rgb.shape)}")
+    if wl_nm.ndim != 1 or wl_nm.shape[0] != rgb.shape[-1]:
+        raise ValueError("wl_nm must be 1D and match rgb last dim")
+    for k in _RGB_ORDER:
+        if k not in band_ranges_nm:
+            raise KeyError(f"band_ranges_nm must contain key '{k}' for purity matrix")
+
+    cols = []
+    for bname in _RGB_ORDER:
+        b0, b1 = band_ranges_nm[bname]
+        mask = _band_mask(wl_nm, b0, b1)
+        if not bool(mask.any().item()):
+            raise ValueError(f"band {bname} has empty mask for given wavelength grid")
+        x = wl_nm[mask]
+        rows = []
+        for c_idx in range(3):
+            y = rgb[..., c_idx, :][..., mask]
+            rows.append(_trapz_mean(y, x))
+        cols.append(torch.stack(rows, dim=-1))  # (..., 3) rows for this band
+    # Stack columns -> (..., 3 colors, 3 bands)
+    return torch.stack(cols, dim=-1)
+
+
 def band_averages_rgb(
     rgb: torch.Tensor,
     *,
@@ -106,26 +146,16 @@ def band_averages_rgb(
     if wl_nm.ndim != 1 or wl_nm.shape[0] != rgb.shape[-1]:
         raise ValueError("wl_nm must be 1D and match rgb last dim")
 
-    # Compute A_{c,b}: average of color c over band b.
-    A: dict[tuple[str, str], torch.Tensor] = {}
-    for bname, (b0, b1) in band_ranges_nm.items():
-        mask = _band_mask(wl_nm, b0, b1)
-        if not bool(mask.any().item()):
-            raise ValueError(f"band {bname} has empty mask for given wavelength grid")
-        x = wl_nm[mask]
-        for c_idx, cname in enumerate(["R", "G", "B"]):
-            y = rgb[..., c_idx, :][..., mask]
-            A[(cname, bname)] = _trapz_mean(y, x)
+    A = crosstalk_matrix_rgb(rgb, wl_nm=wl_nm, band_ranges_nm=band_ranges_nm)  # (...,3,3)
 
-    # Desired in-band per band: D_b = A_{b,b}
-    D_R = A[("R", "R")]
-    D_G = A[("G", "G")]
-    D_B = A[("B", "B")]
+    # Desired in-band per band: D_b = A_{b,b} with order (R,G,B).
+    D_R = A[..., 0, 0]
+    D_G = A[..., 1, 1]
+    D_B = A[..., 2, 2]
 
     # Out-of-band per band: O_b = mean_{c!=b} A_{c,b}
-    O_R = 0.5 * (A[("G", "R")] + A[("B", "R")])
-    O_G = 0.5 * (A[("R", "G")] + A[("B", "G")])
-    O_B = 0.5 * (A[("R", "B")] + A[("G", "B")])
+    O_R = 0.5 * (A[..., 1, 0] + A[..., 2, 0])
+    O_G = 0.5 * (A[..., 0, 1] + A[..., 2, 1])
+    O_B = 0.5 * (A[..., 0, 2] + A[..., 1, 2])
 
     return BandMetrics(D_R=D_R, D_G=D_G, D_B=D_B, O_R=O_R, O_G=O_G, O_B=O_B)
-

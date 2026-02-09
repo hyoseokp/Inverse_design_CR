@@ -10,6 +10,7 @@ from .seed import seed_from_araw
 from .spectral import (
     BandMetrics,
     band_averages_rgb,
+    crosstalk_matrix_rgb,
     downsample_301_to_30_default,
     merge_rggb_to_rgb,
     wavelength_grid_nm,
@@ -39,6 +40,7 @@ class LossTerms:
     loss_ratio: torch.Tensor
     loss_abs: torch.Tensor
     loss_oob: torch.Tensor
+    loss_purity: torch.Tensor
     loss_gray: torch.Tensor
     loss_tv: torch.Tensor
     metrics: BandMetrics
@@ -49,7 +51,7 @@ def spectral_terms_from_rggb(
     *,
     n_channels_target: int,
     band_ranges_nm: dict[str, tuple[float, float]],
-) -> tuple[BandMetrics, torch.Tensor]:
+) -> tuple[BandMetrics, torch.Tensor, torch.Tensor]:
     """Return (band_metrics, rgb_30_or_target) for a single batch.
 
     t_rggb: [B,2,2,C]
@@ -60,8 +62,10 @@ def spectral_terms_from_rggb(
         rgb = downsample_301_to_30_default(rgb)
         C = 30
     wl = wavelength_grid_nm(C)
+    # A_{c,b}: (...,3,3) with c,b in (R,G,B).
+    A = crosstalk_matrix_rgb(rgb, wl_nm=wl, band_ranges_nm=band_ranges_nm)
     m = band_averages_rgb(rgb, wl_nm=wl, band_ranges_nm=band_ranges_nm)
-    return m, rgb
+    return m, rgb, A
 
 
 def compute_loss_from_surrogate(
@@ -71,7 +75,7 @@ def compute_loss_from_surrogate(
     u: torch.Tensor,
 ) -> LossTerms:
     """Compute blueprint losses from surrogate spectra and generator field u."""
-    m, _rgb = spectral_terms_from_rggb(
+    m, _rgb, A = spectral_terms_from_rggb(
         t_rggb,
         n_channels_target=int(cfg.spectra.n_channels),
         band_ranges_nm=cfg.spectra.band_ranges_nm,
@@ -88,16 +92,25 @@ def compute_loss_from_surrogate(
     loss_abs = (1.0 - m.D_R) + (1.0 - m.D_G) + (1.0 - m.D_B)
     # Out-of-band absolute penalty (prevents "everything transmits" degenerate solutions)
     loss_oob = m.O_R + m.O_G + m.O_B
+
+    # Crosstalk purity: for each band (column), normalize across colors, target identity.
+    # P_{c|b} = A_{c,b} / sum_c A_{c,b}; loss = -sum_b log(P_{b|b}).
+    colsum = A.sum(dim=-2)  # [B,3]
+    P = A / (colsum.unsqueeze(-2) + eps)
+    diag = torch.stack([P[:, 0, 0], P[:, 1, 1], P[:, 2, 2]], dim=-1)
+    loss_purity = -torch.log(diag + eps).sum(dim=-1)
+
     loss_gray = gray_penalty(u)
     loss_tv = total_variation_2d(u)
 
     w_ratio = float(cfg.loss.w_ratio)
     w_abs = float(cfg.loss.w_abs)
     w_oob = float(getattr(cfg.loss, "w_oob", 1.0))
+    w_purity = float(getattr(cfg.loss, "w_purity", 0.0))
     w_gray = float(cfg.loss.w_gray)
     w_tv = float(cfg.loss.w_tv)
 
-    loss_spec = (w_ratio * loss_ratio) + (w_abs * loss_abs) + (w_oob * loss_oob)
+    loss_spec = (w_ratio * loss_ratio) + (w_abs * loss_abs) + (w_oob * loss_oob) + (w_purity * loss_purity)
     loss_reg = (w_gray * loss_gray) + (w_tv * loss_tv)
     loss_total = loss_spec + loss_reg
 
@@ -108,6 +121,7 @@ def compute_loss_from_surrogate(
         loss_ratio=loss_ratio,
         loss_abs=loss_abs,
         loss_oob=loss_oob,
+        loss_purity=loss_purity,
         loss_gray=loss_gray,
         loss_tv=loss_tv,
         metrics=m,
@@ -152,6 +166,7 @@ def robust_mc_loss(
     acc_ratio = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
     acc_abs = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
     acc_oob = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
+    acc_purity = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
     acc_gray = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
     acc_tv = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
 
@@ -176,6 +191,7 @@ def robust_mc_loss(
         acc_ratio = acc_ratio + terms.loss_ratio
         acc_abs = acc_abs + terms.loss_abs
         acc_oob = acc_oob + terms.loss_oob
+        acc_purity = acc_purity + terms.loss_purity
         acc_gray = acc_gray + terms.loss_gray
         acc_tv = acc_tv + terms.loss_tv
 
@@ -203,6 +219,7 @@ def robust_mc_loss(
         loss_ratio=acc_ratio * inv_n,
         loss_abs=acc_abs * inv_n,
         loss_oob=acc_oob * inv_n,
+        loss_purity=acc_purity * inv_n,
         loss_gray=acc_gray * inv_n,
         loss_tv=acc_tv * inv_n,
         metrics=metrics,
