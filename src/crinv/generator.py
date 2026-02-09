@@ -239,10 +239,11 @@ def generate_u_and_binary_cfg(
         # Dataset stores binary = ~enforce_mfs_final(...); apply the same inversion.
         p = 1.0 - p
 
-        # Use p as the differentiable field for STE thresholding.
-        x_hard, x_ste = ste_threshold(p, 0.5)
-        if not use_ste:
-            x_ste = x_hard.detach()
+        # IMPORTANT: Forward surrogate can accept continuous inputs; passing binary-only makes
+        # optimization easily stall if p saturates. We keep x_hard for export/FDTD, but
+        # feed x_ste=p (continuous) during optimization.
+        x_hard = (p > 0.5).to(dtype=p.dtype)
+        x_ste = p if use_ste else x_hard.detach()
         return x_hard, x_ste, p
 
     if s16.ndim != 3:

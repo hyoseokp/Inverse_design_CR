@@ -10,12 +10,12 @@ generator:
   # rule_mfs knobs (ignored unless backend: rule_mfs)
   sym_mode: "upper_copy"
   threshold_temp: 0.05
-  # Disk radius (in px on 128x128). diameter ~ 2*r. For diameter=8px, set r=4.
-  mfs_radius_px: 4
+  # Approx of MIN_FEATURE_SIZE=10.0 in the original script -> radius ~ 5px.
+  mfs_radius_px: 5
   mfs_iters: 4
   mfs_kernel: "soft_circle"
-  # Large beta => closer to hard max/min (crisper morphology). dist_scale=0 => uniform disk.
-  mfs_soft_beta: 80.0
+  # Keep it moderately soft to preserve gradients; uniform disk (no distance decay).
+  mfs_soft_beta: 30.0
   mfs_dist_scale: 0.0
 
 spectra:

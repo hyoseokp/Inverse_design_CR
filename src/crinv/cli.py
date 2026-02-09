@@ -118,7 +118,7 @@ def cmd_inverse(args: argparse.Namespace) -> int:
     print(
         f"[START] inverse: n_start={cfg.opt.n_start} n_steps={cfg.opt.n_steps} topk={cfg.opt.topk} "
         f"robustness_samples={cfg.opt.robustness_samples} device={args.device} surrogate={surrogate_name} "
-        f"progress_dir={args.progress_dir}"
+        f"progress_dir={args.progress_dir} gen_backend={cfg.generator.backend} chunk_size={getattr(cfg.opt,'chunk_size',0)}"
     )
 
     t0 = time.monotonic()
