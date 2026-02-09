@@ -234,6 +234,23 @@ A_{R,R} & A_{R,G} & A_{R,B}\\
 A_{G,R} & A_{G,G} & A_{G,B}\\
 A_{B,R} & A_{B,G} & A_{B,B}
 \end{bmatrix}.\\[10pt]
+&\textbf{Linear-algebra form:}\quad
+\mathbf{1}=(1,1,1)^\top,\quad
+d=\mathrm{diag}(A)\in\mathbb{R}^3,\quad
+c=A^\top\mathbf{1}\in\mathbb{R}^3,\quad
+O=\tfrac12(c-d).\\
+&\qquad
+L_{\mathrm{ratio}}=\mathbf{1}^\top\!\left(\log(O+\varepsilon\mathbf{1})-\log(d+\varepsilon\mathbf{1})\right),\quad
+L_{\mathrm{abs}}=\mathbf{1}^\top(\mathbf{1}-d),\quad
+L_{\mathrm{oob}}=\mathbf{1}^\top O.\\
+&\qquad
+P=A\,\mathrm{diag}(c+\varepsilon\mathbf{1})^{-1},\quad
+r=A\mathbf{1},\quad
+Q=\mathrm{diag}(r+\varepsilon\mathbf{1})^{-1}A,\\
+&\qquad
+L_{\mathrm{purity}}=
+-\mathbf{1}^\top\log(\mathrm{diag}(P)+\varepsilon\mathbf{1})
+-\mathbf{1}^\top\log(\mathrm{diag}(Q)+\varepsilon\mathbf{1}).\\[10pt]
 &\textbf{In-band / out-of-band:}\quad
 D_R=A_{R,R},\ D_G=A_{G,G},\ D_B=A_{B,B},\\
 &\qquad
