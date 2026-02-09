@@ -10,7 +10,7 @@ generator:
   # rule_mfs knobs (ignored unless backend: rule_mfs)
   sym_mode: "upper_copy"
   threshold_temp: 0.05
-  mfs_radius_px: 5
+  mfs_radius_px: 8
   mfs_iters: 4
   mfs_kernel: "soft_circle"
   mfs_soft_beta: 20.0
