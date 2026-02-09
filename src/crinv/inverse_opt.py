@@ -44,6 +44,11 @@ def run_inverse_opt(
     steps = int(cfg.opt.n_steps)
     topk = int(cfg.opt.topk)
     lr = float(cfg.opt.lr)
+    chunk = int(getattr(cfg.opt, "chunk_size", 0) or 0)
+    if chunk < 0:
+        raise ValueError("opt.chunk_size must be >= 0")
+    if chunk == 0:
+        chunk = B
 
     out_root = Path(out_root)
     out_root.mkdir(parents=True, exist_ok=True)
@@ -81,45 +86,70 @@ def run_inverse_opt(
     for step in range(steps):
         opt.zero_grad(set_to_none=True)
 
-        terms = robust_mc_loss(
-            cfg=cfg,
-            a_raw=a_raw,
-            surrogate_predict_fn=surrogate.predict,
-            step_seed=int(cfg.opt.random_seed) + int(step),
-        )
-        # Per-candidate loss vector -> optimize mean, track per-candidate best.
-        loss_vec = terms.loss_total
-        loss = loss_vec.mean()
-        loss.backward()
+        # Micro-batch over candidates to keep memory bounded.
+        sum_loss_total = 0.0
+        sum_loss_spec = 0.0
+        sum_loss_reg = 0.0
+        sum_D_R = 0.0
+        sum_D_G = 0.0
+        sum_D_B = 0.0
+        sum_O_R = 0.0
+        sum_O_G = 0.0
+        sum_O_B = 0.0
+
+        for i0 in range(0, B, chunk):
+            i1 = min(B, i0 + chunk)
+            a_chunk = a_raw[i0:i1]
+            terms = robust_mc_loss(
+                cfg=cfg,
+                a_raw=a_chunk,
+                surrogate_predict_fn=surrogate.predict,
+                step_seed=int(cfg.opt.random_seed) + int(step),
+            )
+            loss_vec = terms.loss_total  # (Bc,)
+            # Global mean across all B: sum(loss_vec)/B
+            loss = loss_vec.sum() / float(B)
+            loss.backward()
+
+            with torch.no_grad():
+                sum_loss_total += float(loss_vec.detach().sum().item())
+                sum_loss_spec += float(terms.loss_spec.detach().sum().item())
+                sum_loss_reg += float(terms.loss_reg.detach().sum().item())
+                sum_D_R += float(terms.metrics.D_R.detach().sum().item())
+                sum_D_G += float(terms.metrics.D_G.detach().sum().item())
+                sum_D_B += float(terms.metrics.D_B.detach().sum().item())
+                sum_O_R += float(terms.metrics.O_R.detach().sum().item())
+                sum_O_G += float(terms.metrics.O_G.detach().sum().item())
+                sum_O_B += float(terms.metrics.O_B.detach().sum().item())
+
+                # Track per-candidate best for this chunk.
+                curr = loss_vec.detach().view(-1)
+                improved = curr < best_loss[i0:i1]
+                best_loss[i0:i1] = torch.where(improved, curr, best_loss[i0:i1])
+                s = seed_from_araw(a_chunk.detach())
+                best_seed[i0:i1] = torch.where(improved[:, None, None], s, best_seed[i0:i1])
+
         opt.step()
+        # Reconstruct a scalar mean loss for logging/hook.
+        loss_mean = sum_loss_total / float(B)
+        loss_spec_mean = sum_loss_spec / float(B)
+        loss_reg_mean = sum_loss_reg / float(B)
 
         with torch.no_grad():
-            # Track per-candidate best by current loss estimate.
-            # (For dry-run/mock surrogate, this is sufficient; later can be replaced with
-            # a more robust selection metric.)
-            curr = loss_vec.detach()
-            if curr.shape != (B,):
-                curr = curr.view(-1)[:B]
-            improved = curr < best_loss
-            best_loss = torch.where(improved, curr, best_loss)
-            s = seed_from_araw(a_raw.detach())
-            best_seed = torch.where(improved[:, None, None], s, best_seed)
-
             # Minimal dashboard contract logging (JSONL).
             plog.log_metrics(
                 {
                     "ts": datetime.now(timezone.utc).isoformat(),
                     "step": int(step),
-                    "loss_total": float(loss.detach().item()),
-                    "loss_spec": float(terms.loss_spec.detach().mean().item()),
-                    "loss_reg": float(terms.loss_reg.detach().mean().item()),
-                    "loss_purity": float(terms.loss_purity.detach().mean().item()),
-                    "D_R": float(terms.metrics.D_R.detach().mean().item()),
-                    "D_G": float(terms.metrics.D_G.detach().mean().item()),
-                    "D_B": float(terms.metrics.D_B.detach().mean().item()),
-                    "O_R": float(terms.metrics.O_R.detach().mean().item()),
-                    "O_G": float(terms.metrics.O_G.detach().mean().item()),
-                    "O_B": float(terms.metrics.O_B.detach().mean().item()),
+                    "loss_total": float(loss_mean),
+                    "loss_spec": float(loss_spec_mean),
+                    "loss_reg": float(loss_reg_mean),
+                    "D_R": float(sum_D_R / float(B)),
+                    "D_G": float(sum_D_G / float(B)),
+                    "D_B": float(sum_D_B / float(B)),
+                    "O_R": float(sum_O_R / float(B)),
+                    "O_G": float(sum_O_G / float(B)),
+                    "O_B": float(sum_O_B / float(B)),
                 }
             )
             if progress_hook is not None:
@@ -128,10 +158,9 @@ def run_inverse_opt(
                         "ts": datetime.now(timezone.utc).isoformat(),
                         "step": int(step),
                         "n_steps": int(steps),
-                        "loss_total": float(loss.detach().item()),
-                        "loss_spec": float(terms.loss_spec.detach().mean().item()),
-                        "loss_reg": float(terms.loss_reg.detach().mean().item()),
-                        "loss_purity": float(terms.loss_purity.detach().mean().item()),
+                        "loss_total": float(loss_mean),
+                        "loss_spec": float(loss_spec_mean),
+                        "loss_reg": float(loss_reg_mean),
                     }
                 )
 

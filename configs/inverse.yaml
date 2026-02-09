@@ -40,6 +40,7 @@ opt:
   robustness_samples: 8
   log_every_n_steps: 25
   random_seed: 0
+  chunk_size: 64
 
 paths:
   paths_yaml: "configs/paths.yaml"

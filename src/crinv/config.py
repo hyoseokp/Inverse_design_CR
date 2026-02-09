@@ -66,6 +66,9 @@ class OptimizationConfig(BaseModel):
     robustness_samples: int = 8
     log_every_n_steps: int = 25
     random_seed: int = 0
+    # Process candidates in chunks to control memory (important for real surrogate on CPU).
+    # 0 disables chunking (process all n_start at once).
+    chunk_size: int = 0
 
 
 class InverseDesignConfig(BaseModel):

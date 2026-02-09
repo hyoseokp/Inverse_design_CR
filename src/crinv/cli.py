@@ -36,6 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     inv.add_argument("--n-steps", type=int, default=None)
     inv.add_argument("--topk", type=int, default=None)
     inv.add_argument("--robustness-samples", type=int, default=None)
+    inv.add_argument("--chunk-size", type=int, default=None, help="Process n_start candidates in chunks (memory control)")
     inv.add_argument(
         "--print-every",
         type=int,
@@ -67,6 +68,8 @@ def cmd_inverse(args: argparse.Namespace) -> int:
         cfg.opt.topk = int(args.topk)
     if args.robustness_samples is not None:
         cfg.opt.robustness_samples = int(args.robustness_samples)
+    if args.chunk_size is not None:
+        cfg.opt.chunk_size = int(args.chunk_size)
 
     if args.dry_run:
         # If the user didn't override via flags, keep dry-run small and fast.
