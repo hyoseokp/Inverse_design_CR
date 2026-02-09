@@ -219,56 +219,25 @@
           <div class="formulaBox">
             <div class="formulaLatex" id="lossFormula">$$
 \begin{aligned}
-&\textbf{Surrogate output:}\quad t\in\mathbb{R}^{2\times 2\times C},\qquad
+\textbf{Surrogate:}\quad t\in\mathbb{R}^{2\times 2\times C},\qquad
 s=\mathrm{merge}(t)\in\mathbb{R}^{3\times C}\ \ (R,G,B).\\[8pt]
-&\textbf{Band-bin average (30ch):}\quad
+\textbf{Purity matrix (30ch bins):}\quad
 I_B=\{0,\dots,9\},\ I_G=\{10,\dots,19\},\ I_R=\{20,\dots,29\},\\
 &\qquad
-A_{c,b}=\frac{1}{|I_b|}\sum_{k\in I_b} s_{c,k},
-\qquad c\in\{R,G,B\}.\\[10pt]
-&\textbf{Purity (crosstalk) matrix:}\quad
-A\in\mathbb{R}^{3\times 3},\ \ A_{c,b}\ \text{with } c\in\{R,G,B\}\ (\text{rows}),\ b\in\{R,G,B\}\ (\text{cols}),\\
-&\qquad
-A=
-\begin{bmatrix}
-A_{R,R} & A_{R,G} & A_{R,B}\\
-A_{G,R} & A_{G,G} & A_{G,B}\\
-A_{B,R} & A_{B,G} & A_{B,B}
-\end{bmatrix}.\\[10pt]
-&\textbf{Linear-algebra form:}\quad
-\mathbf{1}=(1,1,1)^\top,\quad
-d=\mathrm{diag}(A)\in\mathbb{R}^3,\quad
-c=A^\top\mathbf{1}\in\mathbb{R}^3,\quad
-O=\tfrac12(c-d).\\
-&\qquad
-L_{\mathrm{purity}}=\lVert A-I\rVert_F^2,\quad
-L_{\mathrm{abs}}=\lVert \mathbf{1}-d\rVert_2^2.\\[6pt]
-&\qquad
-\text{(optional legacy terms)}\quad
-L_{\mathrm{ratio}}=\mathbf{1}^\top\,\mathrm{softplus}(O-\alpha d),\quad
-L_{\mathrm{oob}}=\lVert O\rVert_2^2.\\[10pt]
-&\textbf{In-band / out-of-band:}\quad
-D_R=A_{R,R},\ D_G=A_{G,G},\ D_B=A_{B,B},\\
-&\qquad
-O_R=\tfrac12(A_{G,R}+A_{B,R}),\ 
-O_G=\tfrac12(A_{R,G}+A_{B,G}),\ 
-O_B=\tfrac12(A_{R,B}+A_{G,B}).\\[10pt]
-&\textbf{Spectral loss:}\quad
-L_{\mathrm{purity}}=\lVert A-I\rVert_F^2,\quad
-L_{\mathrm{abs}}=\sum_{b}(1-D_b)^2,\\
+A_{c,b}=\frac{1}{|I_b|}\sum_{k\in I_b} s_{c,k},\qquad
+A\in\mathbb{R}^{3\times 3}\ (c\in\{R,G,B\},\, b\in\{R,G,B\}).\\[10pt]
+\textbf{Spectral loss:}\quad
+L_{\mathrm{purity}}=\lVert A-I\rVert_F^2,\qquad
+L_{\mathrm{abs}}=\lVert \mathbf{1}-\mathrm{diag}(A)\rVert_2^2,\\
 &\qquad
 L_{\mathrm{spec}}=
 w_{\mathrm{purity}}L_{\mathrm{purity}}+
-w_{\mathrm{abs}}L_{\mathrm{abs}}
-\ \ (+\,w_{\mathrm{ratio}}L_{\mathrm{ratio}}+w_{\mathrm{oob}}L_{\mathrm{oob}}\text{ if enabled}).\\[10pt]
-&\textbf{Regularization (field }u\in[0,1]^{H\times W}\textbf{):}\quad
-L_{\mathrm{gray}}=\frac{1}{HW}\sum_{i,j} u_{ij}(1-u_{ij}),\quad
-L_{\mathrm{tv}}=\mathrm{mean}(|\nabla_x u|+|\nabla_y u|),\\
-&\qquad
+w_{\mathrm{abs}}L_{\mathrm{abs}}.\\[10pt]
+\textbf{Regularization:}\quad
 L_{\mathrm{reg}}=
-w_{\mathrm{gray}}L_{\mathrm{gray}}+
-w_{\mathrm{tv}}L_{\mathrm{tv}}.\\[10pt]
-&\textbf{Total (robust MC):}\quad
+w_{\mathrm{gray}}\;\mathrm{mean}\big(u(1-u)\big)+
+w_{\mathrm{tv}}\;\mathrm{TV}(u).\\[10pt]
+\textbf{Total (robust MC):}\quad
 L_{\mathrm{total}}=
 \mathbb{E}_{(\sigma,\tau)}\big[L_{\mathrm{spec}}+L_{\mathrm{reg}}\big]
 \ \approx\ \frac{1}{N}\sum_{n=1}^{N}\big(L_{\mathrm{spec}}^{(n)}+L_{\mathrm{reg}}^{(n)}\big).
