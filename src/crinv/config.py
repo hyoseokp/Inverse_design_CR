@@ -26,6 +26,7 @@ class GeneratorConfig(BaseModel):
     backend: Literal["rule", "rule_mfs", "nn"] = "rule"
 
     # rule_mfs knobs (interpreted in 128x128 pixel units)
+    sym_mode: Literal["avg", "upper_copy"] = "avg"
     threshold_temp: float = 0.05  # soft threshold temperature for sigmoid((u-tau)/temp)
     mfs_radius_px: int = 5  # ~ MIN_FEATURE_SIZE/2 in user's script (10 -> 5)
     mfs_iters: int = 2  # keep small; each iter does opening+closing for solid+void

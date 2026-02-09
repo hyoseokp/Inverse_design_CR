@@ -107,19 +107,41 @@ def generate_u_and_binary_cfg(
         if int(struct_size) != 128:
             raise ValueError("rule_mfs currently supports struct_size=128 only")
 
+        # Match dataset script: symmetric seed is created by copying upper triangle.
+        sym_mode = str(getattr(getattr(cfg, "generator", None), "sym_mode", "avg") or "avg")
+        if sym_mode == "upper_copy":
+            upper = torch.triu(s16)
+            s16 = upper + torch.triu(upper, diagonal=1).transpose(-1, -2)
+        elif sym_mode == "avg":
+            # seed_from_araw already returns avg-sym; keep as-is.
+            pass
+        else:
+            raise ValueError("generator.sym_mode must be 'avg' or 'upper_copy'")
+
         # Match dataset script closer: bicubic upsample + gaussian blur.
         u0 = upsample_bicubic_2d(s16, out_hw=struct_size)
         u = gaussian_blur_2d(u0, sigma=sigma)
 
-        # Soft threshold -> probability field in [0,1].
+        # Soft threshold -> probability field in [0,1] (keeps gradients).
         temp = float(getattr(getattr(cfg, "generator", None), "threshold_temp", 0.05) or 0.05)
         temp = max(1.0e-4, temp)
         p = torch.sigmoid((u - float(tau)) / temp)
 
-        # Differentiable-ish min-feature-size enforcement via iterative morphology
-        # using pooling (subgradient) + circular padding (wrap).
+        # Approximate enforce_mfs_final() via pooling-based morphology with circular padding (wrap).
+        #
+        # apply_buffer_logic(binary, min_size, buffer=1):
+        #   radius = min_size/2
+        #   core = erode(binary, radius)
+        #   over = dilate(core, radius+buffer)
+        #   out  = erode(over, buffer)
+        #
+        # enforce_mfs_final:
+        #   pad wrap, iterate:
+        #     solid: img = apply_buffer_logic(img)
+        #     void:  img = ~apply_buffer_logic(~img)
+        #   crop, then diagonal upper-tri OR symmetry.
         r = int(getattr(getattr(cfg, "generator", None), "mfs_radius_px", 5) or 5)
-        iters = int(getattr(getattr(cfg, "generator", None), "mfs_iters", 2) or 2)
+        iters = int(getattr(getattr(cfg, "generator", None), "mfs_iters", 4) or 4)
         r = max(0, r)
         iters = max(0, iters)
 
@@ -143,16 +165,34 @@ def generate_u_and_binary_cfg(
                 return x
             return -_dilate(-x, rad)
 
-        def _opening(x: torch.Tensor, rad: int) -> torch.Tensor:
-            return _dilate(_erode(x, rad), rad)
+        def _apply_buffer_logic(x: torch.Tensor, *, rad: int, buffer: int = 1) -> torch.Tensor:
+            core = _erode(x, rad)
+            over = _dilate(core, rad + int(buffer))
+            out = _erode(over, int(buffer))
+            return out
 
-        def _closing(x: torch.Tensor, rad: int) -> torch.Tensor:
-            return _erode(_dilate(x, rad), rad)
+        # Wrap pad like the dataset script to reduce edge artifacts.
+        pad = max(0, 2 * (2 * r))  # approx: min_size*2 = (2r)*2 = 4r
+        p = _pad_circ(p, pad)
 
         for _ in range(iters):
-            p = _closing(_opening(p, r), r)
-            # enforce both phases (solid and void)
-            p = 1.0 - _closing(_opening(1.0 - p, r), r)
+            prev = p
+            p = _apply_buffer_logic(p, rad=r, buffer=1)
+            p = 1.0 - _apply_buffer_logic(1.0 - p, rad=r, buffer=1)
+            # Cheap convergence for soft field: if no change at float precision, stop early.
+            if torch.allclose(p, prev, atol=0.0, rtol=0.0):
+                break
+
+        # Crop back.
+        if pad > 0:
+            p = p[:, pad:-pad, pad:-pad]
+
+        # Diagonal symmetry like: img = triu(img) | triu(img,1).T
+        upper = torch.triu(p)
+        p = torch.maximum(upper, upper.transpose(-1, -2))
+
+        # Dataset stores binary = ~enforce_mfs_final(...); apply the same inversion.
+        p = 1.0 - p
 
         # Use p as the differentiable field for STE thresholding.
         x_hard, x_ste = ste_threshold(p, 0.5)
