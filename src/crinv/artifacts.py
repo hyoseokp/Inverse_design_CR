@@ -7,7 +7,7 @@ import numpy as np
 import torch
 
 from .config import InverseDesignConfig
-from .generator import generate_u_and_binary
+from .generator import generate_u_and_binary_cfg
 
 
 @dataclass(frozen=True)
@@ -26,8 +26,13 @@ def nominal_sigma(cfg: InverseDesignConfig) -> float:
 
 def struct_from_seed_nominal(seed16: torch.Tensor, *, cfg: InverseDesignConfig) -> torch.Tensor:
     """Generate hard binary struct with nominal (sigma0,tau0)."""
-    x_hard, _x_ste, _u = generate_u_and_binary(
-        seed16, sigma=nominal_sigma(cfg), tau=cfg.generator.tau0, struct_size=cfg.struct_size, use_ste=False
+    x_hard, _x_ste, _u = generate_u_and_binary_cfg(
+        cfg=cfg,
+        s16=seed16,
+        sigma=nominal_sigma(cfg),
+        tau=cfg.generator.tau0,
+        struct_size=cfg.struct_size,
+        use_ste=False,
     )
     return x_hard
 
@@ -41,4 +46,3 @@ def save_topk_npz(path: str | Path, pack: TopKPack) -> None:
         struct128_topk=pack.struct128,
         **{f"metric_{k}": v for k, v in pack.metrics.items()},
     )
-

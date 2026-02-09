@@ -18,6 +18,10 @@ class GeneratorConfig(BaseModel):
     sigma_set: list[float] = Field(default_factory=lambda: [0.8, 1.0, 1.2])
     tau0: float = 0.5
     delta_tau: float = 0.05
+    # Structure generator backend:
+    # - "rule": bilinear upsample + gaussian blur + threshold (fast)
+    # - "nn": 16->128 predictor network (trained to match dataset rule incl. MFS)
+    backend: Literal["rule", "nn"] = "rule"
 
 
 class SpectraConfig(BaseModel):

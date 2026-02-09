@@ -15,3 +15,5 @@ forward_model_root: ""   # e.g., "C:/path/to/data_CR/code/CR_recon"
 lumerical_root: ""       # e.g., "C:/Program Files/Lumerical/v241"
 fdtd_template_fsp: ""    # e.g., "C:/path/to/air_SiN_2um_NA.fsp"
 
+# Optional: 16x16 -> 128x128 generator predictor checkpoint (PyTorch state_dict)
+generator_predictor_checkpoint: ""  # e.g., "C:/Users/me/Downloads/generator_model_128_ep245.pth"

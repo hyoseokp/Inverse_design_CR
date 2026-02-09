@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 
 from .config import InverseDesignConfig
-from .generator import generate_u_and_binary
+from .generator import generate_u_and_binary_cfg
 from .seed import seed_from_araw
 from .spectral import (
     BandMetrics,
@@ -185,8 +185,9 @@ def robust_mc_loss(
     acc_O_B = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
 
     for samp in samples:
-        x_hard, x_ste, u = generate_u_and_binary(
-            s, sigma=samp.sigma, tau=samp.tau, struct_size=cfg.struct_size, use_ste=True
+        # Use configured generator backend (rule/nn).
+        x_hard, x_ste, u = generate_u_and_binary_cfg(
+            cfg=cfg, s16=s, sigma=samp.sigma, tau=samp.tau, struct_size=cfg.struct_size, use_ste=True
         )
         # Surrogate input should be binary on forward path; x_ste is forward-equal to x_hard.
         t = surrogate_predict_fn(x_ste)
