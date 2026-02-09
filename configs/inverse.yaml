@@ -6,7 +6,7 @@ generator:
   sigma_set: [0.8, 1.0, 1.2]
   tau0: 0.5
   delta_tau: 0.05
-  backend: "nn"
+  backend: "rule"
 
 spectra:
   n_channels: 30   # or 301
