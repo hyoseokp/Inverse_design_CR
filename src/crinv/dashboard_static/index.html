@@ -221,9 +221,10 @@
 \begin{aligned}
 &\textbf{Surrogate output:}\quad t\in\mathbb{R}^{2\times 2\times C},\qquad
 s=\mathrm{merge}(t)\in\mathbb{R}^{3\times C}\ \ (R,G,B).\\[8pt]
-&\textbf{Band average:}\quad
-A_{c,b}=\frac{1}{\lambda_{b,1}-\lambda_{b,0}}
-\int_{\lambda_{b,0}}^{\lambda_{b,1}} s_c(\lambda)\,d\lambda,
+&\textbf{Band-bin average (30ch):}\quad
+I_B=\{0,\dots,9\},\ I_G=\{10,\dots,19\},\ I_R=\{20,\dots,29\},\\
+&\qquad
+A_{c,b}=\frac{1}{|I_b|}\sum_{k\in I_b} s_{c,k},
 \qquad c\in\{R,G,B\}.\\[10pt]
 &\textbf{Purity (crosstalk) matrix:}\quad
 A\in\mathbb{R}^{3\times 3},\ \ A_{c,b}\ \text{with } c\in\{R,G,B\}\ (\text{rows}),\ b\in\{R,G,B\}\ (\text{cols}),\\

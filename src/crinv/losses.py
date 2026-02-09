@@ -52,6 +52,7 @@ def spectral_terms_from_rggb(
     *,
     n_channels_target: int,
     band_ranges_nm: dict[str, tuple[float, float]],
+    band_indices_30: dict[str, tuple[int, int]] | None = None,
 ) -> tuple[BandMetrics, torch.Tensor, torch.Tensor]:
     """Return (band_metrics, rgb_30_or_target) for a single batch.
 
@@ -64,8 +65,8 @@ def spectral_terms_from_rggb(
         C = 30
     wl = wavelength_grid_nm(C)
     # A_{c,b}: (...,3,3) with c,b in (R,G,B).
-    A = crosstalk_matrix_rgb(rgb, wl_nm=wl, band_ranges_nm=band_ranges_nm)
-    m = band_averages_rgb(rgb, wl_nm=wl, band_ranges_nm=band_ranges_nm)
+    A = crosstalk_matrix_rgb(rgb, wl_nm=wl, band_ranges_nm=band_ranges_nm, band_indices_30=band_indices_30)
+    m = band_averages_rgb(rgb, wl_nm=wl, band_ranges_nm=band_ranges_nm, band_indices_30=band_indices_30)
     return m, rgb, A
 
 
@@ -80,6 +81,7 @@ def compute_loss_from_surrogate(
         t_rggb,
         n_channels_target=int(cfg.spectra.n_channels),
         band_ranges_nm=cfg.spectra.band_ranges_nm,
+        band_indices_30=getattr(cfg.spectra, "band_indices_30", None),
     )
 
     eps = float(cfg.loss.epsilon)

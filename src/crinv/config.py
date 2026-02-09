@@ -28,6 +28,12 @@ class SpectraConfig(BaseModel):
             k: (v.start_nm, v.end_nm) for k, v in DEFAULT_BAND_RANGES_NM.items()
         }
     )
+    # For 30-channel spectra, optionally use fixed channel index groups for band averages.
+    # This makes the 3x3 purity matrix exactly correspond to channel bins:
+    #   B: 0-9, G: 10-19, R: 20-29 (inclusive).
+    band_indices_30: dict[str, tuple[int, int]] = Field(
+        default_factory=lambda: {"B": (0, 9), "G": (10, 19), "R": (20, 29)}
+    )
 
 
 class LossConfig(BaseModel):

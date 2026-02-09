@@ -96,6 +96,7 @@ def crosstalk_matrix_rgb(
     *,
     wl_nm: torch.Tensor,
     band_ranges_nm: dict[str, tuple[float, float]],
+    band_indices_30: dict[str, tuple[int, int]] | None = None,
 ) -> torch.Tensor:
     """Compute crosstalk/purity matrix A_{c,b} for RGB spectra.
 
@@ -112,17 +113,34 @@ def crosstalk_matrix_rgb(
         if k not in band_ranges_nm:
             raise KeyError(f"band_ranges_nm must contain key '{k}' for purity matrix")
 
+    # If we're in the canonical 30-channel case, allow exact channel-bin averages
+    # (e.g. B:0-9, G:10-19, R:20-29) instead of nm masking/trapz.
+    use_idx = (rgb.shape[-1] == 30) and (band_indices_30 is not None)
+
     cols = []
     for bname in _RGB_ORDER:
-        b0, b1 = band_ranges_nm[bname]
-        mask = _band_mask(wl_nm, b0, b1)
-        if not bool(mask.any().item()):
-            raise ValueError(f"band {bname} has empty mask for given wavelength grid")
-        x = wl_nm[mask]
         rows = []
-        for c_idx in range(3):
-            y = rgb[..., c_idx, :][..., mask]
-            rows.append(_trapz_mean(y, x))
+        if use_idx:
+            if bname not in band_indices_30:
+                raise KeyError(f"band_indices_30 missing key '{bname}'")
+            lo, hi = band_indices_30[bname]
+            lo = int(lo)
+            hi = int(hi)
+            if not (0 <= lo <= hi < rgb.shape[-1]):
+                raise ValueError(f"invalid band_indices_30 for {bname}: {(lo, hi)} with C={rgb.shape[-1]}")
+            sl = slice(lo, hi + 1)  # inclusive
+            for c_idx in range(3):
+                rows.append(rgb[..., c_idx, sl].mean(dim=-1))
+        else:
+            b0, b1 = band_ranges_nm[bname]
+            mask = _band_mask(wl_nm, b0, b1)
+            if not bool(mask.any().item()):
+                raise ValueError(f"band {bname} has empty mask for given wavelength grid")
+            x = wl_nm[mask]
+            for c_idx in range(3):
+                y = rgb[..., c_idx, :][..., mask]
+                rows.append(_trapz_mean(y, x))
+
         cols.append(torch.stack(rows, dim=-1))  # (..., 3) rows for this band
     # Stack columns -> (..., 3 colors, 3 bands)
     return torch.stack(cols, dim=-1)
@@ -133,6 +151,7 @@ def band_averages_rgb(
     *,
     wl_nm: torch.Tensor,
     band_ranges_nm: dict[str, tuple[float, float]],
+    band_indices_30: dict[str, tuple[int, int]] | None = None,
 ) -> BandMetrics:
     """Compute D_b and O_b from RGB spectra.
 
@@ -146,7 +165,9 @@ def band_averages_rgb(
     if wl_nm.ndim != 1 or wl_nm.shape[0] != rgb.shape[-1]:
         raise ValueError("wl_nm must be 1D and match rgb last dim")
 
-    A = crosstalk_matrix_rgb(rgb, wl_nm=wl_nm, band_ranges_nm=band_ranges_nm)  # (...,3,3)
+    A = crosstalk_matrix_rgb(
+        rgb, wl_nm=wl_nm, band_ranges_nm=band_ranges_nm, band_indices_30=band_indices_30
+    )  # (...,3,3)
 
     # Desired in-band per band: D_b = A_{b,b} with order (R,G,B).
     D_R = A[..., 0, 0]
