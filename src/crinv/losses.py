@@ -94,11 +94,22 @@ def compute_loss_from_surrogate(
     loss_oob = m.O_R + m.O_G + m.O_B
 
     # Crosstalk purity: for each band (column), normalize across colors, target identity.
-    # P_{c|b} = A_{c,b} / sum_c A_{c,b}; loss = -sum_b log(P_{b|b}).
+    # We enforce purity in two ways:
+    #  1) Column-wise (band-conditional): P_{c|b} = A_{c,b} / sum_c A_{c,b} -> discourage other colors inside each band.
+    #  2) Row-wise (color-conditional):  Q_{b|c} = A_{c,b} / sum_b A_{c,b} -> discourage a color spilling into other bands.
+    #
+    # Combined loss uses negative log-likelihood of diagonal for both normalizations.
     colsum = A.sum(dim=-2)  # [B,3]
     P = A / (colsum.unsqueeze(-2) + eps)
     diag = torch.stack([P[:, 0, 0], P[:, 1, 1], P[:, 2, 2]], dim=-1)
-    loss_purity = -torch.log(diag + eps).sum(dim=-1)
+    loss_purity_col = -torch.log(diag + eps).sum(dim=-1)
+
+    rowsum = A.sum(dim=-1)  # [B,3]
+    Q = A / (rowsum.unsqueeze(-1) + eps)
+    diag2 = torch.stack([Q[:, 0, 0], Q[:, 1, 1], Q[:, 2, 2]], dim=-1)
+    loss_purity_row = -torch.log(diag2 + eps).sum(dim=-1)
+
+    loss_purity = loss_purity_col + loss_purity_row
 
     loss_gray = gray_penalty(u)
     loss_tv = total_variation_2d(u)

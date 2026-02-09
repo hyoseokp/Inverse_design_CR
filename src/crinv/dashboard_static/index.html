@@ -187,7 +187,6 @@
         <div class="bar"><div id="progFill"></div></div>
         <div class="row" style="margin-top:8px">
           <div class="kpi">loss_total: <b id="kpiLoss">-</b></div>
-          <div class="kpi">loss_purity: <b id="kpiPurity">-</b></div>
         </div>
         <div class="chartBox"><canvas id="lossChart"></canvas></div>
         </div>
@@ -237,7 +236,9 @@ L_{\mathrm{ratio}}=\sum_{b\in\{R,G,B\}}\log\frac{O_b+\varepsilon}{D_b+\varepsilo
 L_{\mathrm{abs}}=\sum_{b}(1-D_b),\quad
 L_{\mathrm{oob}}=\sum_{b}O_b,\\
 &\qquad
-L_{\mathrm{purity}}=-\sum_{b\in\{R,G,B\}}\log\left(\frac{A_{b,b}}{\sum_{c\in\{R,G,B\}}A_{c,b}+\varepsilon}+\varepsilon\right),\\
+L_{\mathrm{purity}}=
+-\sum_{b\in\{R,G,B\}}\log\left(\frac{A_{b,b}}{\sum_{c\in\{R,G,B\}}A_{c,b}+\varepsilon}+\varepsilon\right)
+-\sum_{c\in\{R,G,B\}}\log\left(\frac{A_{c,c}}{\sum_{b\in\{R,G,B\}}A_{c,b}+\varepsilon}+\varepsilon\right),\\
 &\qquad
 L_{\mathrm{spec}}=
 w_{\mathrm{ratio}}L_{\mathrm{ratio}}+
@@ -266,7 +267,6 @@ $$</div>
       const statusText = document.getElementById('statusText');
       const kpiStep = document.getElementById('kpiStep');
       const kpiLoss = document.getElementById('kpiLoss');
-      const kpiPurity = document.getElementById('kpiPurity');
       const progFill = document.getElementById('progFill');
       const kpiTopk = document.getElementById('kpiTopk');
       const thumbs = document.getElementById('thumbs');
@@ -327,18 +327,6 @@ $$</div>
               backgroundColor: 'rgba(59,130,246,0.08)',
               fill: true,
               borderWidth: 2,
-              tension: 0.4,
-              pointRadius: 0,
-              pointHoverRadius: 4
-            },
-            {
-              label: 'loss_purity',
-              data: [],
-              borderColor: '#f97316',
-              backgroundColor: 'rgba(249,115,22,0.00)',
-              fill: false,
-              borderWidth: 2,
-              borderDash: [6, 4],
               tension: 0.4,
               pointRadius: 0,
               pointHoverRadius: 4
@@ -471,8 +459,6 @@ $$</div>
         }
         const lt = Number(latest.loss_total);
         kpiLoss.textContent = Number.isFinite(lt) ? lt.toFixed(6) : '-';
-        const lp = Number(latest.loss_purity);
-        kpiPurity.textContent = Number.isFinite(lp) ? lp.toFixed(6) : '-';
 
         // windowing
         let windowN = ui.window === 'all' ? null : Number(ui.window);
@@ -481,12 +467,10 @@ $$</div>
 
         const x = steps.slice(startIdx);
         const yTotal = (series.loss_total || []).slice(startIdx);
-        const yPurity = (series.loss_purity || []).slice(startIdx);
 
         updateLossScale();
         lossChart.data.labels = x.map(String);
         lossChart.data.datasets[0].data = yTotal;
-        lossChart.data.datasets[1].data = yPurity;
         lossChart.update();
       }
 
