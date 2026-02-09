@@ -87,33 +87,24 @@ def compute_loss_from_surrogate(
     eps = float(cfg.loss.epsilon)
     alpha = float(getattr(cfg.loss, "margin_alpha", 0.3))
 
-    # Stable separation margin: penalize leakage exceeding a fraction of diagonal.
-    # (Replaces log-ratio which tends to cause large gradients when D is small.)
+    # Simple objective is defined on the 3x3 purity matrix A:
+    #   A_{c,b} = mean_{k in band-bin b} s_{c,k}
+    # with rows c in (R,G,B) and cols b in (R,G,B).
+    # Purity drives A -> I (diagonal up, off-diagonal down).
+    I = torch.eye(3, device=A.device, dtype=A.dtype).unsqueeze(0)  # (1,3,3)
+    loss_purity = ((A - I) ** 2).sum(dim=(1, 2))
+
+    # Optional explicit diagonal efficiency (can be redundant with purity).
+    diagA = torch.stack([A[:, 0, 0], A[:, 1, 1], A[:, 2, 2]], dim=-1)
+    loss_abs = ((1.0 - diagA) ** 2).sum(dim=-1)
+
+    # Legacy/advanced terms (still computed for logging, but default weights are 0).
     loss_ratio = (
         F.softplus(m.O_R - alpha * m.D_R)
         + F.softplus(m.O_G - alpha * m.D_G)
         + F.softplus(m.O_B - alpha * m.D_B)
     )
-
-    # Diagonal efficiency (smoother than linear): push D_b -> 1.
-    loss_abs = (1.0 - m.D_R) ** 2 + (1.0 - m.D_G) ** 2 + (1.0 - m.D_B) ** 2
-
-    # Leakage penalty: square to avoid "always-on" shrink and to stabilize gradients.
     loss_oob = (m.O_R ** 2) + (m.O_G ** 2) + (m.O_B ** 2)
-
-    # Crosstalk purity: for each band (column), normalize across colors, target identity.
-    # We enforce purity in two ways:
-    #  1) Column-wise (band-conditional): P_{c|b} = A_{c,b} / sum_c A_{c,b} -> discourage other colors inside each band.
-    #  2) Row-wise (color-conditional):  Q_{b|c} = A_{c,b} / sum_b A_{c,b} -> discourage a color spilling into other bands.
-    #
-    # Combined loss uses squared distance to Identity for both normalizations (more stable than log-diag).
-    colsum = A.sum(dim=-2)  # [B,3]
-    P = A / (colsum.unsqueeze(-2) + eps)
-
-    rowsum = A.sum(dim=-1)  # [B,3]
-    Q = A / (rowsum.unsqueeze(-1) + eps)
-    I = torch.eye(3, device=A.device, dtype=A.dtype).unsqueeze(0)  # (1,3,3)
-    loss_purity = ((P - I) ** 2).sum(dim=(1, 2)) + ((Q - I) ** 2).sum(dim=(1, 2))
 
     loss_gray = gray_penalty(u)
     loss_tv = total_variation_2d(u)

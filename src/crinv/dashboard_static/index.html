@@ -241,15 +241,12 @@ d=\mathrm{diag}(A)\in\mathbb{R}^3,\quad
 c=A^\top\mathbf{1}\in\mathbb{R}^3,\quad
 O=\tfrac12(c-d).\\
 &\qquad
-L_{\mathrm{ratio}}=\mathbf{1}^\top\,\mathrm{softplus}\!\left(O-\alpha d\right),\quad
-L_{\mathrm{abs}}=\lVert \mathbf{1}-d\rVert_2^2,\quad
-L_{\mathrm{oob}}=\lVert O\rVert_2^2.\\
+L_{\mathrm{purity}}=\lVert A-I\rVert_F^2,\quad
+L_{\mathrm{abs}}=\lVert \mathbf{1}-d\rVert_2^2.\\[6pt]
 &\qquad
-P=A\,\mathrm{diag}(c+\varepsilon\mathbf{1})^{-1},\quad
-r=A\mathbf{1},\quad
-Q=\mathrm{diag}(r+\varepsilon\mathbf{1})^{-1}A,\\
-&\qquad
-L_{\mathrm{purity}}=\lVert P-I\rVert_F^2+\lVert Q-I\rVert_F^2.\\[10pt]
+\text{(optional legacy terms)}\quad
+L_{\mathrm{ratio}}=\mathbf{1}^\top\,\mathrm{softplus}(O-\alpha d),\quad
+L_{\mathrm{oob}}=\lVert O\rVert_2^2.\\[10pt]
 &\textbf{In-band / out-of-band:}\quad
 D_R=A_{R,R},\ D_G=A_{G,G},\ D_B=A_{B,B},\\
 &\qquad
@@ -257,22 +254,13 @@ O_R=\tfrac12(A_{G,R}+A_{B,R}),\
 O_G=\tfrac12(A_{R,G}+A_{B,G}),\ 
 O_B=\tfrac12(A_{R,B}+A_{G,B}).\\[10pt]
 &\textbf{Spectral loss:}\quad
-L_{\mathrm{ratio}}=\sum_{b\in\{R,G,B\}}\mathrm{softplus}(O_b-\alpha D_b),\quad
-L_{\mathrm{abs}}=\sum_{b}(1-D_b)^2,\quad
-L_{\mathrm{oob}}=\sum_{b}O_b^2,\\
-&\qquad
-L_{\mathrm{purity}}=
-L_{\mathrm{purity}}^{(\mathrm{col})}+L_{\mathrm{purity}}^{(\mathrm{row})},\\
-&\qquad
-L_{\mathrm{purity}}^{(\mathrm{col})}=\lVert P-I\rVert_F^2,\qquad P=A\,\mathrm{diag}(c+\varepsilon\mathbf{1})^{-1},\\
-&\qquad
-L_{\mathrm{purity}}^{(\mathrm{row})}=\lVert Q-I\rVert_F^2,\qquad Q=\mathrm{diag}(r+\varepsilon\mathbf{1})^{-1}A,\\
+L_{\mathrm{purity}}=\lVert A-I\rVert_F^2,\quad
+L_{\mathrm{abs}}=\sum_{b}(1-D_b)^2,\\
 &\qquad
 L_{\mathrm{spec}}=
-w_{\mathrm{ratio}}L_{\mathrm{ratio}}+
-w_{\mathrm{abs}}L_{\mathrm{abs}}+
-w_{\mathrm{oob}}L_{\mathrm{oob}}+
-w_{\mathrm{purity}}L_{\mathrm{purity}}.\\[10pt]
+w_{\mathrm{purity}}L_{\mathrm{purity}}+
+w_{\mathrm{abs}}L_{\mathrm{abs}}
+\ \ (+\,w_{\mathrm{ratio}}L_{\mathrm{ratio}}+w_{\mathrm{oob}}L_{\mathrm{oob}}\text{ if enabled}).\\[10pt]
 &\textbf{Regularization (field }u\in[0,1]^{H\times W}\textbf{):}\quad
 L_{\mathrm{gray}}=\frac{1}{HW}\sum_{i,j} u_{ij}(1-u_{ij}),\quad
 L_{\mathrm{tv}}=\mathrm{mean}(|\nabla_x u|+|\nabla_y u|),\\
