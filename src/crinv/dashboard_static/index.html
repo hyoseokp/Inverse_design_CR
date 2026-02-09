@@ -187,6 +187,7 @@
         <div class="bar"><div id="progFill"></div></div>
         <div class="row" style="margin-top:8px">
           <div class="kpi">loss_total: <b id="kpiLoss">-</b></div>
+          <div class="kpi">loss_purity: <b id="kpiPurity">-</b></div>
         </div>
         <div class="chartBox"><canvas id="lossChart"></canvas></div>
         </div>
@@ -236,10 +237,13 @@ L_{\mathrm{ratio}}=\sum_{b\in\{R,G,B\}}\log\frac{O_b+\varepsilon}{D_b+\varepsilo
 L_{\mathrm{abs}}=\sum_{b}(1-D_b),\quad
 L_{\mathrm{oob}}=\sum_{b}O_b,\\
 &\qquad
+L_{\mathrm{purity}}=-\sum_{b\in\{R,G,B\}}\log\left(\frac{A_{b,b}}{\sum_{c\in\{R,G,B\}}A_{c,b}+\varepsilon}+\varepsilon\right),\\
+&\qquad
 L_{\mathrm{spec}}=
 w_{\mathrm{ratio}}L_{\mathrm{ratio}}+
 w_{\mathrm{abs}}L_{\mathrm{abs}}+
-w_{\mathrm{oob}}L_{\mathrm{oob}}.\\[4pt]
+w_{\mathrm{oob}}L_{\mathrm{oob}}+
+w_{\mathrm{purity}}L_{\mathrm{purity}}.\\[4pt]
 &\textbf{Regularization (field }u\in[0,1]^{H\times W}\textbf{):}\quad
 L_{\mathrm{gray}}=\frac{1}{HW}\sum_{i,j} u_{ij}(1-u_{ij}),\quad
 L_{\mathrm{tv}}=\mathrm{mean}(|\nabla_x u|+|\nabla_y u|),\\
@@ -262,6 +266,7 @@ $$</div>
       const statusText = document.getElementById('statusText');
       const kpiStep = document.getElementById('kpiStep');
       const kpiLoss = document.getElementById('kpiLoss');
+      const kpiPurity = document.getElementById('kpiPurity');
       const progFill = document.getElementById('progFill');
       const kpiTopk = document.getElementById('kpiTopk');
       const thumbs = document.getElementById('thumbs');
@@ -326,6 +331,18 @@ $$</div>
               pointRadius: 0,
               pointHoverRadius: 4
             },
+            {
+              label: 'loss_purity',
+              data: [],
+              borderColor: '#f97316',
+              backgroundColor: 'rgba(249,115,22,0.00)',
+              fill: false,
+              borderWidth: 2,
+              borderDash: [6, 4],
+              tension: 0.4,
+              pointRadius: 0,
+              pointHoverRadius: 4
+            },
           ]},
           options: {
             responsive: true,
@@ -362,12 +379,12 @@ $$</div>
                 bodyFont: { size: 11, family: fontFamily },
                 callbacks: {
                   label: (ctx) => {
+                    const name = (ctx && ctx.dataset && ctx.dataset.label) ? String(ctx.dataset.label) : 'loss';
                     const v = (ctx && ctx.parsed) ? ctx.parsed.y : null;
-                    if (v == null) return 'loss_total: --';
-                    if (!Number.isFinite(v)) return 'loss_total: --';
+                    if (v == null || !Number.isFinite(v)) return `${name}: --`;
                     const s = (v >= 0.01) ? v.toFixed(6) : v.toExponential(3);
-                    return `loss_total: ${s}`;
-                  }
+                    return `${name}: ${s}`;
+                  },
                 }
               }
             }
@@ -454,6 +471,8 @@ $$</div>
         }
         const lt = Number(latest.loss_total);
         kpiLoss.textContent = Number.isFinite(lt) ? lt.toFixed(6) : '-';
+        const lp = Number(latest.loss_purity);
+        kpiPurity.textContent = Number.isFinite(lp) ? lp.toFixed(6) : '-';
 
         // windowing
         let windowN = ui.window === 'all' ? null : Number(ui.window);
@@ -462,10 +481,12 @@ $$</div>
 
         const x = steps.slice(startIdx);
         const yTotal = (series.loss_total || []).slice(startIdx);
+        const yPurity = (series.loss_purity || []).slice(startIdx);
 
         updateLossScale();
         lossChart.data.labels = x.map(String);
         lossChart.data.datasets[0].data = yTotal;
+        lossChart.data.datasets[1].data = yPurity;
         lossChart.update();
       }
 

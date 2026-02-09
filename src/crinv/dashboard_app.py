@@ -318,13 +318,20 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         loss_total = [_f(by_step[s].get("loss_total")) for s in steps_sorted]
         loss_spec = [_f(by_step[s].get("loss_spec")) for s in steps_sorted]
         loss_reg = [_f(by_step[s].get("loss_reg")) for s in steps_sorted]
+        loss_purity = [_f(by_step[s].get("loss_purity")) for s in steps_sorted]
         latest = by_step[steps_sorted[-1]] if steps_sorted else {}
 
         return JSONResponse(
             _json_sanitize(
                 {
                     "meta": meta,
-                    "series": {"steps": steps_sorted, "loss_total": loss_total, "loss_spec": loss_spec, "loss_reg": loss_reg},
+                    "series": {
+                        "steps": steps_sorted,
+                        "loss_total": loss_total,
+                        "loss_spec": loss_spec,
+                        "loss_reg": loss_reg,
+                        "loss_purity": loss_purity,
+                    },
                     "latest": latest,
                 }
             )
