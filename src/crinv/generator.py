@@ -4,9 +4,10 @@ from pathlib import Path
 
 import torch
 import yaml
+import torch.nn.functional as F
 
 from .config import GeneratorConfig
-from .ops import gaussian_blur_2d, sample_sigma_tau, ste_threshold, upsample_bilinear_2d
+from .ops import gaussian_blur_2d, sample_sigma_tau, ste_threshold, upsample_bicubic_2d, upsample_bilinear_2d
 
 _NN_CACHE: dict[tuple[str, str], torch.nn.Module] = {}
 
@@ -93,11 +94,71 @@ def generate_u_and_binary_cfg(
     """Generate (x_hard, x_ste, u) using configured backend.
 
     - rule: bilinear upsample + gaussian blur + threshold
+    - rule_mfs: bicubic upsample + gaussian blur + soft threshold + differentiable-ish MFS (morphology)
     - nn:   learned 16->128 predictor + threshold (sigma is ignored)
     """
     backend = getattr(getattr(cfg, "generator", None), "backend", "rule")
-    if backend != "nn":
+    if backend == "rule":
         return generate_u_and_binary(s16, sigma=sigma, tau=tau, struct_size=struct_size, use_ste=use_ste)
+
+    if backend == "rule_mfs":
+        if s16.ndim != 3:
+            raise ValueError(f"s16 must have shape [B,16,16], got {tuple(s16.shape)}")
+        if int(struct_size) != 128:
+            raise ValueError("rule_mfs currently supports struct_size=128 only")
+
+        # Match dataset script closer: bicubic upsample + gaussian blur.
+        u0 = upsample_bicubic_2d(s16, out_hw=struct_size)
+        u = gaussian_blur_2d(u0, sigma=sigma)
+
+        # Soft threshold -> probability field in [0,1].
+        temp = float(getattr(getattr(cfg, "generator", None), "threshold_temp", 0.05) or 0.05)
+        temp = max(1.0e-4, temp)
+        p = torch.sigmoid((u - float(tau)) / temp)
+
+        # Differentiable-ish min-feature-size enforcement via iterative morphology
+        # using pooling (subgradient) + circular padding (wrap).
+        r = int(getattr(getattr(cfg, "generator", None), "mfs_radius_px", 5) or 5)
+        iters = int(getattr(getattr(cfg, "generator", None), "mfs_iters", 2) or 2)
+        r = max(0, r)
+        iters = max(0, iters)
+
+        def _pad_circ(x: torch.Tensor, pad: int) -> torch.Tensor:
+            if pad <= 0:
+                return x
+            x4 = x.unsqueeze(1)  # (B,1,H,W)
+            x4 = F.pad(x4, (pad, pad, pad, pad), mode="circular")
+            return x4.squeeze(1)
+
+        def _dilate(x: torch.Tensor, rad: int) -> torch.Tensor:
+            if rad <= 0:
+                return x
+            k = 2 * rad + 1
+            x4 = _pad_circ(x, rad).unsqueeze(1)
+            y4 = F.max_pool2d(x4, kernel_size=k, stride=1)
+            return y4.squeeze(1)
+
+        def _erode(x: torch.Tensor, rad: int) -> torch.Tensor:
+            if rad <= 0:
+                return x
+            return -_dilate(-x, rad)
+
+        def _opening(x: torch.Tensor, rad: int) -> torch.Tensor:
+            return _dilate(_erode(x, rad), rad)
+
+        def _closing(x: torch.Tensor, rad: int) -> torch.Tensor:
+            return _erode(_dilate(x, rad), rad)
+
+        for _ in range(iters):
+            p = _closing(_opening(p, r), r)
+            # enforce both phases (solid and void)
+            p = 1.0 - _closing(_opening(1.0 - p, r), r)
+
+        # Use p as the differentiable field for STE thresholding.
+        x_hard, x_ste = ste_threshold(p, 0.5)
+        if not use_ste:
+            x_ste = x_hard.detach()
+        return x_hard, x_ste, p
 
     if s16.ndim != 3:
         raise ValueError(f"s16 must have shape [B,16,16], got {tuple(s16.shape)}")

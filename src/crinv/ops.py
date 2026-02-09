@@ -15,6 +15,15 @@ def upsample_bilinear_2d(x: torch.Tensor, out_hw: int) -> torch.Tensor:
     return y4.squeeze(1)
 
 
+def upsample_bicubic_2d(x: torch.Tensor, out_hw: int) -> torch.Tensor:
+    """Bicubic upsample for tensors shaped [B,H,W] -> [B,out_hw,out_hw]."""
+    if x.ndim != 3:
+        raise ValueError(f"x must have shape [B,H,W], got {tuple(x.shape)}")
+    x4 = x.unsqueeze(1)  # [B,1,H,W]
+    y4 = F.interpolate(x4, size=(out_hw, out_hw), mode="bicubic", align_corners=False)
+    return y4.squeeze(1)
+
+
 def gaussian_kernel1d(sigma: float, truncate: float = 3.0, device=None, dtype=None) -> torch.Tensor:
     if sigma <= 0:
         raise ValueError("sigma must be > 0")
@@ -96,4 +105,3 @@ def sample_sigma_tau(
     for i in range(n):
         out.append(RobustSample(sigma=float(sigma_set[int(sigma_idx[i])]), tau=float(tau[i].item())))
     return out
-

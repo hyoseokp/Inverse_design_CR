@@ -7,6 +7,10 @@ generator:
   tau0: 0.5
   delta_tau: 0.05
   backend: "rule"
+  # rule_mfs knobs (ignored unless backend: rule_mfs)
+  threshold_temp: 0.05
+  mfs_radius_px: 5
+  mfs_iters: 2
 
 spectra:
   n_channels: 30   # or 301
