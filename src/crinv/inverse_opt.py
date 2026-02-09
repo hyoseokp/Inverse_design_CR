@@ -45,6 +45,9 @@ def run_inverse_opt(
     topk = int(cfg.opt.topk)
     lr = float(cfg.opt.lr)
     chunk = int(getattr(cfg.opt, "chunk_size", 0) or 0)
+    reduction = str(getattr(cfg.opt, "loss_reduction", "mean") or "mean")
+    if reduction not in ("mean", "sum"):
+        raise ValueError("opt.loss_reduction must be 'mean' or 'sum'")
     if chunk < 0:
         raise ValueError("opt.chunk_size must be >= 0")
     if chunk == 0:
@@ -97,6 +100,8 @@ def run_inverse_opt(
         sum_O_G = 0.0
         sum_O_B = 0.0
 
+        denom = float(B) if reduction == "mean" else 1.0
+
         for i0 in range(0, B, chunk):
             i1 = min(B, i0 + chunk)
             a_chunk = a_raw[i0:i1]
@@ -107,8 +112,10 @@ def run_inverse_opt(
                 step_seed=int(cfg.opt.random_seed) + int(step),
             )
             loss_vec = terms.loss_total  # (Bc,)
-            # Global mean across all B: sum(loss_vec)/B
-            loss = loss_vec.sum() / float(B)
+            # Global reduction across all B:
+            # - mean: sum(loss_vec)/B
+            # - sum:  sum(loss_vec)
+            loss = loss_vec.sum() / denom
             loss.backward()
 
             with torch.no_grad():

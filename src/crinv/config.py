@@ -69,6 +69,10 @@ class OptimizationConfig(BaseModel):
     # Process candidates in chunks to control memory (important for real surrogate on CPU).
     # 0 disables chunking (process all n_start at once).
     chunk_size: int = 0
+    # How to aggregate per-candidate losses into the scalar objective.
+    # - "mean": minimize average loss across n_start (default, stable)
+    # - "sum":  minimize sum of losses (equivalent to mean with lr scaled by n_start)
+    loss_reduction: Literal["mean", "sum"] = "mean"
 
 
 class InverseDesignConfig(BaseModel):

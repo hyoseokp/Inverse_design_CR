@@ -41,6 +41,7 @@ opt:
   log_every_n_steps: 25
   random_seed: 0
   chunk_size: 64
+  loss_reduction: "mean"
 
 paths:
   paths_yaml: "configs/paths.yaml"
