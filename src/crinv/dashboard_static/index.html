@@ -665,6 +665,8 @@
       function renderLatexFromMeta(meta){
         // Prefer meta.loss from run_meta.json (written by inverse_opt.py).
         const L = (meta && meta.loss) ? meta.loss : {};
+        const S = (meta && meta.spectra) ? meta.spectra : {};
+        const W = (S && S.rgb_weights) ? S.rgb_weights : {};
         const w_purity = numOr(L.w_purity, 1.0);
         const w_abs = numOr(L.w_abs, 0.0);
         const w_gray = numOr(L.w_gray, 0.1);
@@ -672,12 +674,19 @@
         const w_fill = numOr(L.w_fill, 1.0);
         const fill_min = numOr(L.fill_min, 0.2);
         const fill_max = numOr(L.fill_max, 0.5);
+        const wR = numOr(W.R, 1.0);
+        const wG = numOr(W.G, 1.0);
+        const wB = numOr(W.B, 1.0);
 
         // Keep the original KaTeX auto-render approach: inject $$...$$ and call renderMathInElement.
         const texBody = `\\begin{aligned}
+&\\textbf{RGB weighting (before }A\\textbf{):}\\\\
+&\\qquad \\tilde{s}_{R,k}=${wR.toFixed(2)}\\,s_{R,k},\\quad
+\\tilde{s}_{G,k}=${wG.toFixed(2)}\\,s_{G,k},\\quad
+\\tilde{s}_{B,k}=${wB.toFixed(2)}\\,s_{B,k}.\\\\[6pt]
 &\\textbf{Purity matrix (30ch bins):}\\\\
 &\\qquad I_B=\\{0,\\dots,9\\},\\ I_G=\\{10,\\dots,19\\},\\ I_R=\\{20,\\dots,29\\}.\\\\
-&\\qquad A_{c,b}=\\frac{1}{|I_b|}\\sum_{k\\in I_b} s_{c,k},\\qquad A\\in\\mathbb{R}^{3\\times 3}.\\\\[8pt]
+&\\qquad A_{c,b}=\\frac{1}{|I_b|}\\sum_{k\\in I_b} \\tilde{s}_{c,k},\\qquad A\\in\\mathbb{R}^{3\\times 3}.\\\\[8pt]
 &\\textbf{Spectral loss:}\\\\
 &\\qquad L_{\\mathrm{purity}}=\\lVert A-I\\rVert_F^2,\\qquad
 L_{\\mathrm{abs}}=\\lVert \\mathbf{1}-\\mathrm{diag}(A)\\rVert_2^2.\\\\

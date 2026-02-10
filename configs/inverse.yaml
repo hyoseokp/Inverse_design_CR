@@ -22,6 +22,11 @@ generator:
 
 spectra:
   n_channels: 30   # or 301
+  # Scale RGB spectra before building purity matrix A. Default emphasizes green by 2x.
+  rgb_weights:
+    R: 1.0
+    G: 2.0
+    B: 1.0
   band_ranges_nm:
     B: [400.0, 500.0]
     G: [500.0, 600.0]

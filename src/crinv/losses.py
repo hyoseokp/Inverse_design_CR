@@ -54,6 +54,7 @@ def spectral_terms_from_rggb(
     n_channels_target: int,
     band_ranges_nm: dict[str, tuple[float, float]],
     band_indices_30: dict[str, tuple[int, int]] | None = None,
+    rgb_weights: dict[str, float] | None = None,
 ) -> tuple[BandMetrics, torch.Tensor, torch.Tensor]:
     """Return (band_metrics, rgb_30_or_target) for a single batch.
 
@@ -64,6 +65,18 @@ def spectral_terms_from_rggb(
     if C == 301 and n_channels_target == 30:
         rgb = downsample_301_to_30_default(rgb)
         C = 30
+
+    # Optional per-color scaling before computing purity matrix A.
+    # This is intentionally applied at the "spectrum -> A" stage (as requested).
+    if rgb_weights:
+        wR = float(rgb_weights.get("R", 1.0))
+        wG = float(rgb_weights.get("G", 1.0))
+        wB = float(rgb_weights.get("B", 1.0))
+        if (wR != 1.0) or (wG != 1.0) or (wB != 1.0):
+            rgb = rgb.clone()
+            rgb[:, 0, :] = rgb[:, 0, :] * wR
+            rgb[:, 1, :] = rgb[:, 1, :] * wG
+            rgb[:, 2, :] = rgb[:, 2, :] * wB
     wl = wavelength_grid_nm(C)
     # A_{c,b}: (...,3,3) with c,b in (R,G,B).
     A = crosstalk_matrix_rgb(rgb, wl_nm=wl, band_ranges_nm=band_ranges_nm, band_indices_30=band_indices_30)
@@ -84,6 +97,7 @@ def compute_loss_from_surrogate(
         n_channels_target=int(cfg.spectra.n_channels),
         band_ranges_nm=cfg.spectra.band_ranges_nm,
         band_indices_30=getattr(cfg.spectra, "band_indices_30", None),
+        rgb_weights=getattr(cfg.spectra, "rgb_weights", None),
     )
 
     eps = float(cfg.loss.epsilon)

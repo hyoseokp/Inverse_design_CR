@@ -53,6 +53,10 @@ class SpectraConfig(BaseModel):
     band_indices_30: dict[str, tuple[int, int]] = Field(
         default_factory=lambda: {"B": (0, 9), "G": (10, 19), "R": (20, 29)}
     )
+    # Optional per-color scaling applied before computing purity matrix A and band metrics.
+    # This lets you weight certain colors more strongly at the "spectrum -> A" stage.
+    # Default: emphasize green by 2x.
+    rgb_weights: dict[str, float] = Field(default_factory=lambda: {"R": 1.0, "G": 2.0, "B": 1.0})
 
 
 class LossConfig(BaseModel):

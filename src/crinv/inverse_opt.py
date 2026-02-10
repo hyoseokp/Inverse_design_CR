@@ -79,6 +79,10 @@ def run_inverse_opt(
                 "tau0": float(cfg.generator.tau0),
                 "delta_tau": float(cfg.generator.delta_tau),
             },
+            "spectra": {
+                "n_channels": int(cfg.spectra.n_channels),
+                "rgb_weights": dict(getattr(cfg.spectra, "rgb_weights", {"R": 1.0, "G": 1.0, "B": 1.0})),
+            },
             "loss": {
                 "w_purity": float(getattr(cfg.loss, "w_purity", 0.0)),
                 "w_abs": float(getattr(cfg.loss, "w_abs", 0.0)),
@@ -247,12 +251,14 @@ def run_inverse_opt(
                             n_channels_target=int(cfg.spectra.n_channels),
                             band_ranges_nm=cfg.spectra.band_ranges_nm,
                             band_indices_30=getattr(cfg.spectra, "band_indices_30", None),
+                            rgb_weights=getattr(cfg.spectra, "rgb_weights", None),
                         )
                         _mc, _rgbc, Ac = spectral_terms_from_rggb(
                             tc,
                             n_channels_target=int(cfg.spectra.n_channels),
                             band_ranges_nm=cfg.spectra.band_ranges_nm,
                             band_indices_30=getattr(cfg.spectra, "band_indices_30", None),
+                            rgb_weights=getattr(cfg.spectra, "rgb_weights", None),
                         )
 
                     Ab_np = Ab[0].detach().cpu().numpy().astype(np.float32)
