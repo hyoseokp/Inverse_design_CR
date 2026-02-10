@@ -34,6 +34,9 @@ class GeneratorConfig(BaseModel):
     # soft_circle params: higher beta -> closer to hard max/min; dist_scale -> stronger center bias
     mfs_soft_beta: float = 20.0
     mfs_dist_scale: float = 0.25
+    # Extra circular padding before MFS iterations (then cropped back).
+    # Larger values reduce boundary artifacts at the cost of compute.
+    mfs_pad_mult: int = 4
 
 
 class SpectraConfig(BaseModel):

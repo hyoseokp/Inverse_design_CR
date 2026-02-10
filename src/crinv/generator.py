@@ -217,7 +217,11 @@ def generate_u_and_binary_cfg(
             return out
 
         # Wrap pad like the dataset script to reduce edge artifacts.
-        pad = max(0, 2 * (2 * r))  # approx: min_size*2 = (2r)*2 = 4r
+        pad_mult = int(getattr(getattr(cfg, "generator", None), "mfs_pad_mult", 4) or 4)
+        pad_mult = max(0, pad_mult)
+        # Match dataset script baseline: pad ~= 4*r (since min_size=2r and pad=min_size*2).
+        # Allow making it larger to reduce boundary artifacts for soft morphology kernels.
+        pad = max(0, pad_mult * r)
         p = _pad_circ(p, pad)
 
         for _ in range(iters):

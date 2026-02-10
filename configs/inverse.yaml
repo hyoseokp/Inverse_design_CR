@@ -17,6 +17,8 @@ generator:
   # Keep it moderately soft to preserve gradients; uniform disk (no distance decay).
   mfs_soft_beta: 30.0
   mfs_dist_scale: 0.0
+  # Extra wrap padding before MFS iterations (cropped back). Larger reduces boundary artifacts.
+  mfs_pad_mult: 8
 
 spectra:
   n_channels: 30   # or 301
