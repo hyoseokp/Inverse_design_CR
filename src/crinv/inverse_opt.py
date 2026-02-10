@@ -97,6 +97,7 @@ def run_inverse_opt(
         sum_loss_total = 0.0
         sum_loss_spec = 0.0
         sum_loss_reg = 0.0
+        sum_loss_fill = 0.0
         sum_D_R = 0.0
         sum_D_G = 0.0
         sum_D_B = 0.0
@@ -126,6 +127,7 @@ def run_inverse_opt(
                 sum_loss_total += float(loss_vec.detach().sum().item())
                 sum_loss_spec += float(terms.loss_spec.detach().sum().item())
                 sum_loss_reg += float(terms.loss_reg.detach().sum().item())
+                sum_loss_fill += float(terms.loss_fill.detach().sum().item())
                 sum_D_R += float(terms.metrics.D_R.detach().sum().item())
                 sum_D_G += float(terms.metrics.D_G.detach().sum().item())
                 sum_D_B += float(terms.metrics.D_B.detach().sum().item())
@@ -148,6 +150,7 @@ def run_inverse_opt(
         loss_mean = sum_loss_total / float(B)
         loss_spec_mean = sum_loss_spec / float(B)
         loss_reg_mean = sum_loss_reg / float(B)
+        loss_fill_mean = sum_loss_fill / float(B)
 
         with torch.no_grad():
             # Minimal dashboard contract logging (JSONL).
@@ -158,6 +161,7 @@ def run_inverse_opt(
                     "loss_total": float(loss_mean),
                     "loss_spec": float(loss_spec_mean),
                     "loss_reg": float(loss_reg_mean),
+                    "loss_fill": float(loss_fill_mean),
                     "D_R": float(sum_D_R / float(B)),
                     "D_G": float(sum_D_G / float(B)),
                     "D_B": float(sum_D_B / float(B)),
@@ -175,6 +179,7 @@ def run_inverse_opt(
                         "loss_total": float(loss_mean),
                         "loss_spec": float(loss_spec_mean),
                         "loss_reg": float(loss_reg_mean),
+                        "loss_fill": float(loss_fill_mean),
                     }
                 )
 

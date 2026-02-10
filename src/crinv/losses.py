@@ -44,6 +44,7 @@ class LossTerms:
     loss_purity: torch.Tensor
     loss_gray: torch.Tensor
     loss_tv: torch.Tensor
+    loss_fill: torch.Tensor
     metrics: BandMetrics
 
 
@@ -75,6 +76,7 @@ def compute_loss_from_surrogate(
     cfg: InverseDesignConfig,
     t_rggb: torch.Tensor,
     u: torch.Tensor,
+    x_struct: torch.Tensor | None = None,
 ) -> LossTerms:
     """Compute blueprint losses from surrogate spectra and generator field u."""
     m, _rgb, A = spectral_terms_from_rggb(
@@ -115,10 +117,26 @@ def compute_loss_from_surrogate(
     w_purity = float(getattr(cfg.loss, "w_purity", 0.0))
     w_gray = float(cfg.loss.w_gray)
     w_tv = float(cfg.loss.w_tv)
+    w_fill = float(getattr(cfg.loss, "w_fill", 0.0))
+    fill_min = float(getattr(cfg.loss, "fill_min", 0.0))
+    fill_max = float(getattr(cfg.loss, "fill_max", 1.0))
 
     loss_spec = (w_ratio * loss_ratio) + (w_abs * loss_abs) + (w_oob * loss_oob) + (w_purity * loss_purity)
     loss_reg = (w_gray * loss_gray) + (w_tv * loss_tv)
-    loss_total = loss_spec + loss_reg
+
+    # Fill-fraction constraint (mean over pixels). Penalize being outside [fill_min, fill_max].
+    # This matters because the surrogate is trained on structures within a limited density range.
+    if x_struct is None:
+        loss_fill = torch.zeros_like(loss_reg)
+    else:
+        if x_struct.ndim != 3:
+            raise ValueError(f"x_struct must be [B,H,W], got {tuple(x_struct.shape)}")
+        fill = x_struct.mean(dim=(1, 2))
+        lo = F.softplus(fill_min - fill)
+        hi = F.softplus(fill - fill_max)
+        loss_fill = (lo * lo) + (hi * hi)
+
+    loss_total = loss_spec + loss_reg + (w_fill * loss_fill)
 
     return LossTerms(
         loss_total=loss_total,
@@ -130,6 +148,7 @@ def compute_loss_from_surrogate(
         loss_purity=loss_purity,
         loss_gray=loss_gray,
         loss_tv=loss_tv,
+        loss_fill=loss_fill,
         metrics=m,
     )
 
@@ -175,6 +194,7 @@ def robust_mc_loss(
     acc_purity = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
     acc_gray = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
     acc_tv = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
+    acc_fill = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
 
     # Metrics: per-sample, averaged over MC.
     acc_D_R = torch.zeros((B,), device=a_raw.device, dtype=a_raw.dtype)
@@ -191,7 +211,7 @@ def robust_mc_loss(
         )
         # Surrogate input should be binary on forward path; x_ste is forward-equal to x_hard.
         t = surrogate_predict_fn(x_ste)
-        terms = compute_loss_from_surrogate(cfg=cfg, t_rggb=t, u=u)
+        terms = compute_loss_from_surrogate(cfg=cfg, t_rggb=t, u=u, x_struct=x_ste)
         acc_total = acc_total + terms.loss_total
         acc_spec = acc_spec + terms.loss_spec
         acc_reg = acc_reg + terms.loss_reg
@@ -201,6 +221,7 @@ def robust_mc_loss(
         acc_purity = acc_purity + terms.loss_purity
         acc_gray = acc_gray + terms.loss_gray
         acc_tv = acc_tv + terms.loss_tv
+        acc_fill = acc_fill + terms.loss_fill
 
         acc_D_R = acc_D_R + terms.metrics.D_R
         acc_D_G = acc_D_G + terms.metrics.D_G
@@ -229,5 +250,6 @@ def robust_mc_loss(
         loss_purity=acc_purity * inv_n,
         loss_gray=acc_gray * inv_n,
         loss_tv=acc_tv * inv_n,
+        loss_fill=acc_fill * inv_n,
         metrics=metrics,
     )

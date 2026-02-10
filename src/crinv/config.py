@@ -72,6 +72,13 @@ class LossConfig(BaseModel):
     w_gray: float = 0.1
     w_tv: float = 0.01
 
+    # Keep structures within the surrogate's training distribution.
+    # CR_recon config (reference) uses constraints: sum_min=0.45, sum_max=0.95.
+    # Here "sum" means mean fill fraction over pixels.
+    w_fill: float = 0.0
+    fill_min: float = 0.45
+    fill_max: float = 0.95
+
 
 class OptimizationConfig(BaseModel):
     n_start: int = 200
