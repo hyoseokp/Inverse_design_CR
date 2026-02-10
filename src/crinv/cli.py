@@ -45,6 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Aggregate per-candidate losses into objective (mean|sum).",
     )
     inv.add_argument(
+        "--fdtd-verify",
+        choices=["on", "off", "ask"],
+        default="ask",
+        help="After inverse completes, run Lumerical FDTD on the produced Top-K (on|off|ask).",
+    )
+    inv.add_argument("--fdtd-k", type=int, default=None, help="How many top-k items to verify via FDTD (default: all)")
+    inv.add_argument("--fdtd-config", default="configs/fdtd.yaml", help="FDTD config YAML for verification")
+    inv.add_argument(
         "--print-every",
         type=int,
         default=None,
@@ -156,6 +164,41 @@ def cmd_inverse(args: argparse.Namespace) -> int:
         progress_hook=_hook,
     )
     print(f"[OK] inverse done: run_dir={res.run_dir} topk={res.topk_path}")
+
+    # Optional FDTD verification on Top-K.
+    do_fdtd = str(args.fdtd_verify)
+    if do_fdtd == "ask":
+        try:
+            ans = input("Run FDTD verification on Top-K now? [y/N] ").strip().lower()
+            do_fdtd = "on" if ans in ("y", "yes") else "off"
+        except Exception:
+            do_fdtd = "off"
+    if do_fdtd == "on":
+        try:
+            inv_cfg = cfg
+            fdtd_cfg = resolve_fdtd_cfg(fdtd_yaml=args.fdtd_config, inverse_cfg=inv_cfg)
+            v = verify_topk_with_fdtd(
+                topk_npz=res.topk_path,
+                inverse_cfg=inv_cfg,
+                fdtd_cfg=fdtd_cfg,
+                out_dir="data/fdtd_results",
+                k=args.fdtd_k,
+            )
+            # Also copy a per-step artifact into progress_dir for dashboard overlay.
+            import shutil
+            import numpy as np
+            from pathlib import Path
+
+            step_last = int(cfg.opt.n_steps) - 1
+            pdir = Path(args.progress_dir)
+            pdir.mkdir(parents=True, exist_ok=True)
+            dst = pdir / f"fdtd_rggb_step-{step_last}.npy"
+            shutil.copyfile(v.fdtd_rggb_path, dst)
+            meta = {"step": step_last, "k": int(args.fdtd_k) if args.fdtd_k is not None else None, "out_dir": str(v.out_dir)}
+            (pdir / "fdtd_meta.json").write_text(__import__("json").dumps(meta, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+            print(f"[OK] fdtd-verify saved: {dst}")
+        except Exception as e:
+            print(f"[WARN] fdtd-verify failed: {e}")
     return 0
 
 

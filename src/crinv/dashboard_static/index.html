@@ -78,6 +78,70 @@
         border: 1px solid var(--border);
         padding: 14px 16px;
       }
+      .controls {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr 1fr auto;
+        gap: 10px;
+        align-items: end;
+        margin-top: 10px;
+      }
+      @media (max-width: 1100px) {
+        .controls { grid-template-columns: 1fr 1fr 1fr; }
+      }
+      .field label {
+        display: block;
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .field input, .field select {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #f8fafc;
+        color: #0f172a;
+        font-size: 12px;
+        outline: none;
+      }
+      .field input:focus, .field select:focus {
+        border-color: rgba(99,102,241,0.55);
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+      }
+      .toggleRow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #f8fafc;
+        height: 38px;
+      }
+      .toggleRow .kpi { margin: 0; }
+      .btn {
+        appearance: none;
+        border: 0;
+        border-radius: 12px;
+        padding: 10px 14px;
+        background: linear-gradient(180deg, #111827, #0b1220);
+        color: #fff;
+        font-weight: 800;
+        font-size: 12px;
+        cursor: pointer;
+        height: 38px;
+        box-shadow: var(--shadow);
+      }
+      .btn:active { transform: translateY(1px); }
+      .runStatus {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #64748b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
       .panel {
         display: flex;
         flex-direction: column;
@@ -153,6 +217,7 @@
         line-height: 1.85;
         white-space: pre-wrap;
       }
+      .katex { font-size: 1.0em; }
     </style>
   </head>
   <body>
@@ -165,6 +230,48 @@
     </div>
 
     <div class="grid">
+      <!-- Run controls -->
+      <div class="card panel">
+        <div class="row">
+          <div class="kpi"><b>Run</b> start optimization from dashboard</div>
+          <div class="toggleRow">
+            <div class="kpi"><b>FDTD verify</b></div>
+            <input id="fdtdToggle" type="checkbox" />
+          </div>
+        </div>
+        <div class="controls">
+          <div class="field">
+            <label for="inDevice">device</label>
+            <select id="inDevice">
+              <option value="cpu">cpu</option>
+              <option value="cuda">cuda</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="inNStart">n_start</label>
+            <input id="inNStart" type="number" min="1" step="1" value="1000" />
+          </div>
+          <div class="field">
+            <label for="inNSteps">n_steps</label>
+            <input id="inNSteps" type="number" min="1" step="1" value="1000" />
+          </div>
+          <div class="field">
+            <label for="inTopk">topk</label>
+            <input id="inTopk" type="number" min="1" step="1" value="10" />
+          </div>
+          <div class="field">
+            <label for="inRobust">robustness_samples</label>
+            <input id="inRobust" type="number" min="1" step="1" value="2" />
+          </div>
+          <div class="field">
+            <label for="inChunk">chunk_size</label>
+            <input id="inChunk" type="number" min="1" step="1" value="64" />
+          </div>
+          <button class="btn" id="runBtn">Run optimization</button>
+        </div>
+        <div class="runStatus" id="runStatus"></div>
+      </div>
+
       <!-- Top row: optima (left) + spectrum (right), same size -->
       <div class="row2">
         <div class="card panel">
@@ -217,18 +324,14 @@
             <div class="kpi">robust MC: E_{sigma,tau}[L] (Monte Carlo average)</div>
           </div>
           <div class="formulaBox">
-            <div class="formulaLatex" id="lossFormula">$$
-\begin{aligned}
-&\textbf{Surrogate:}\\
-&\qquad t\in\mathbb{R}^{2\times 2\times C},\qquad
-s=\mathrm{merge}(t)\in\mathbb{R}^{3\times C}\ (R,G,B).\\[8pt]
+            <div class="formulaLatex" id="lossFormula"></div>
+            <pre id="lossFormulaTex" style="display:none">\begin{aligned}
 &\textbf{Purity matrix (30ch bins):}\\
 &\qquad I_B=\{0,\dots,9\},\quad I_G=\{10,\dots,19\},\quad I_R=\{20,\dots,29\}.\\
-&\qquad A_{c,b}=\frac{1}{|I_b|}\sum_{k\in I_b} s_{c,k},\qquad
-A\in\mathbb{R}^{3\times 3}.\\[10pt]
+&\qquad A_{c,b}=\frac{1}{|I_b|}\sum_{k\in I_b} s_{c,k},\qquad A\in\mathbb{R}^{3\times 3}.\\[10pt]
 &\textbf{Spectral loss:}\\
-&\qquad L_{\mathrm{purity}}=\lVert A-I\rVert_F^2.\\
-&\qquad L_{\mathrm{abs}}=\lVert \mathbf{1}-\mathrm{diag}(A)\rVert_2^2.\\
+&\qquad L_{\mathrm{purity}}=\lVert A-I\rVert_F^2,\qquad
+L_{\mathrm{abs}}=\lVert \mathbf{1}-\mathrm{diag}(A)\rVert_2^2.\\
 &\qquad L_{\mathrm{spec}}=
 w_{\mathrm{purity}}L_{\mathrm{purity}}+w_{\mathrm{abs}}L_{\mathrm{abs}}.\\[10pt]
 &\textbf{Regularization:}\\
@@ -238,8 +341,7 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
 &\textbf{Total (robust MC):}\\
 &\qquad L_{\mathrm{total}}=\mathbb{E}_{(\sigma,\tau)}\big[L_{\mathrm{spec}}+L_{\mathrm{reg}}\big]
 \ \approx\ \frac{1}{N}\sum_{n=1}^{N}\big(L_{\mathrm{spec}}^{(n)}+L_{\mathrm{reg}}^{(n)}\big).
-\end{aligned}
-$$</div>
+\end{aligned}</pre>
           </div>
         </div>
       </div>
@@ -269,6 +371,7 @@ $$</div>
       const ui = {
         scale: localStorage.getItem('loss_scale') || 'log',
         window: localStorage.getItem('loss_window') || 'all',
+        fdtd: (localStorage.getItem('fdtd_verify') || 'off'),
         selected: {step:null, idx:0},
         lastTopkKey: ''
       };
@@ -293,6 +396,11 @@ $$</div>
 
       let lossChart = null;
       let specChart = null;
+
+      function setRunStatus(text){
+        const el = document.getElementById('runStatus');
+        if (el) el.textContent = text || '';
+      }
 
       function makeLossChart(){
         const ctx = document.getElementById('lossChart');
@@ -370,9 +478,14 @@ $$</div>
         specChart = new Chart(ctx, {
           type: 'line',
           data: { labels: [], datasets: [
-            { label: 'R', data: [], borderColor: '#ef4444', borderWidth: 2, pointRadius: 0, tension: 0.4 },
-            { label: 'G', data: [], borderColor: '#22c55e', borderWidth: 2, pointRadius: 0, tension: 0.4 },
-            { label: 'B', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.4 },
+            // Predicted (forward model): dashed + lighter.
+            { label: 'R pred', data: [], borderColor: 'rgba(239,68,68,0.35)', borderWidth: 2, borderDash: [6,4], pointRadius: 0, tension: 0.4 },
+            { label: 'G pred', data: [], borderColor: 'rgba(34,197,94,0.35)', borderWidth: 2, borderDash: [6,4], pointRadius: 0, tension: 0.4 },
+            { label: 'B pred', data: [], borderColor: 'rgba(59,130,246,0.35)', borderWidth: 2, borderDash: [6,4], pointRadius: 0, tension: 0.4 },
+            // FDTD verified: solid.
+            { label: 'R fdtd', data: [], borderColor: '#ef4444', borderWidth: 2, pointRadius: 0, tension: 0.4, hidden: true },
+            { label: 'G fdtd', data: [], borderColor: '#22c55e', borderWidth: 2, pointRadius: 0, tension: 0.4, hidden: true },
+            { label: 'B fdtd', data: [], borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.4, hidden: true },
           ]},
           options: {
             responsive: true,
@@ -471,6 +584,17 @@ $$</div>
           applyStatus(st);
         } catch(e) { /* ignore */ }
 
+        // Run status
+        try{
+          const rs = await fetchJSON('/api/run/status');
+          if (rs.running) {
+            const tail = rs.tail || [];
+            setRunStatus('running: ' + (tail.length ? tail[tail.length-1] : '...'));
+          } else if (rs.last_exit_code != null) {
+            setRunStatus('last exit: ' + rs.last_exit_code);
+          }
+        } catch(e) { /* ignore */ }
+
         // TopK
         try{
           const t = await fetchJSON('/api/topk/latest');
@@ -521,8 +645,32 @@ $$</div>
           specChart.data.datasets[0].data = rgb[0];
           specChart.data.datasets[1].data = rgb[1];
           specChart.data.datasets[2].data = rgb[2];
+          // Hide FDTD datasets by default; show only if loaded.
+          specChart.data.datasets[3].hidden = true;
+          specChart.data.datasets[4].hidden = true;
+          specChart.data.datasets[5].hidden = true;
+
+          if (ui.fdtd === 'on') {
+            try{
+              const f = await fetchJSON(`/api/topk/${step}/${idx}/fdtd_spectrum`);
+              if (f && f.rgb) {
+                const frgb = f.rgb;
+                specChart.data.datasets[3].data = frgb[0];
+                specChart.data.datasets[4].data = frgb[1];
+                specChart.data.datasets[5].data = frgb[2];
+                specChart.data.datasets[3].hidden = false;
+                specChart.data.datasets[4].hidden = false;
+                specChart.data.datasets[5].hidden = false;
+                specHint.textContent = `pred vs FDTD: 3x${C} (400-700 nm)`;
+              }
+            } catch(e) {
+              // no fdtd available
+            }
+          }
           specChart.update();
-          specHint.textContent = `forward model output: 3x${C} (400-700 nm)`;
+          if (specHint.textContent === 'click a thumbnail' || specHint.textContent === '') {
+            specHint.textContent = `forward model output: 3x${C} (400-700 nm)`;
+          }
         } catch(e) {
           specHint.textContent = 'spectrum unavailable (surrogate not configured)';
         }
@@ -534,6 +682,8 @@ $$</div>
         const step = el.getAttribute('data-step');
         const idx = el.getAttribute('data-idx');
         if (step == null || idx == null) return;
+        ui.selected.step = Number(step);
+        ui.selected.idx = Number(idx);
         Array.from(thumbs.querySelectorAll('.thumb')).forEach(x => x.classList.toggle('sel', x === el));
         await loadSpectrum(step, idx);
       });
@@ -543,15 +693,51 @@ $$</div>
       makeLossChart();
       makeSpecChart();
 
+      // FDTD verify toggle + run button
+      const fdtdToggle = document.getElementById('fdtdToggle');
+      if (fdtdToggle) {
+        fdtdToggle.checked = (ui.fdtd === 'on');
+        fdtdToggle.addEventListener('change', () => {
+          ui.fdtd = fdtdToggle.checked ? 'on' : 'off';
+          localStorage.setItem('fdtd_verify', ui.fdtd);
+          // refresh spectrum overlay if a thumb is selected
+          if (ui.selected.step != null) loadSpectrum(ui.selected.step, ui.selected.idx);
+        });
+      }
+      const runBtn = document.getElementById('runBtn');
+      if (runBtn) {
+        runBtn.addEventListener('click', async () => {
+          const nStart = Number(document.getElementById('inNStart')?.value || 200);
+          const nSteps = Number(document.getElementById('inNSteps')?.value || 2000);
+          const topk = Number(document.getElementById('inTopk')?.value || 50);
+          const rs = Number(document.getElementById('inRobust')?.value || 8);
+          const dev = String(document.getElementById('inDevice')?.value || 'cpu');
+          const chunk = Number(document.getElementById('inChunk')?.value || 64);
+          try{
+            const url = `/api/run/start?n_start=${encodeURIComponent(nStart)}&n_steps=${encodeURIComponent(nSteps)}&topk=${encodeURIComponent(topk)}&robustness_samples=${encodeURIComponent(rs)}&device=${encodeURIComponent(dev)}&chunk_size=${encodeURIComponent(chunk)}&fdtd_verify=${ui.fdtd==='on'?1:0}`;
+            const r = await fetch(url, {method:'POST'});
+            if (!r.ok) throw new Error(String(r.status));
+            setRunStatus('started');
+          } catch(e) {
+            setRunStatus('failed to start');
+          }
+        });
+      }
+
       function renderLatex(){
-        const el = document.getElementById('lossFormula');
-        if (!el) return;
-        if (!window.renderMathInElement) return;
-        try {
-          renderMathInElement(el, {
-            delimiters: [{left:'$$', right:'$$', display:true}, {left:'$', right:'$', display:false}]
-          });
-        } catch(e) {}
+        const box = document.getElementById('lossFormula');
+        const texEl = document.getElementById('lossFormulaTex');
+        if (!box || !texEl) return;
+        const tex = (texEl.textContent || '').trim();
+        if (!tex) return;
+        if (window.katex && window.katex.render) {
+          try {
+            window.katex.render(tex, box, { displayMode: true, throwOnError: false, strict: "ignore" });
+            return;
+          } catch(e) {}
+        }
+        // Fallback: show raw TeX if KaTeX failed to load.
+        box.textContent = tex;
       }
       // KaTeX scripts are loaded with `defer`, so render on load (reference style).
       window.addEventListener('load', () => {

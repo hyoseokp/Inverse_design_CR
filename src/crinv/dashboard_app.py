@@ -4,6 +4,9 @@ import io
 import json
 import math
 import re
+import subprocess
+import sys
+import threading
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -94,10 +97,19 @@ class SpectrumCache:
     rgb: np.ndarray | None = None
 
 
+@dataclass
+class RunProcState:
+    proc: subprocess.Popen | None = None
+    lines: deque[str] = deque(maxlen=400)
+    started_ts: str | None = None
+    last_exit_code: int | None = None
+
+
 def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
     progress_dir = Path(progress_dir)
     cache = TopKCache()
     scache = SpectrumCache()
+    rstate = RunProcState()
 
     app = FastAPI(title="CR Inverse Dashboard")
 
@@ -256,6 +268,107 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
             scache.rgb = rgb
         C = int(rgb.shape[-1])
         return JSONResponse(_json_sanitize({"step": int(step), "idx": int(idx), "n_channels": C, "rgb": rgb.tolist()}))
+
+    @app.get("/api/topk/{step}/{idx}/fdtd_spectrum")
+    def topk_fdtd_spectrum(step: int, idx: int) -> JSONResponse:
+        """Return FDTD-verified RGB spectrum for the given topk step/index, if available."""
+        p = progress_dir / f"fdtd_rggb_step-{int(step)}.npy"
+        if not p.exists():
+            return JSONResponse({"error": "fdtd spectrum not available"}, status_code=404)
+        arr = np.load(p)
+        if arr.ndim != 4 or arr.shape[1:3] != (2, 2):
+            return JSONResponse({"error": f"bad fdtd_rggb shape: {arr.shape}"}, status_code=500)
+        if idx < 0 or idx >= arr.shape[0]:
+            return JSONResponse({"error": "idx out of range"}, status_code=404)
+        t = torch.from_numpy(arr[idx : idx + 1].astype(np.float32))
+        rgb = merge_rggb_to_rgb(t)[0].detach().cpu().numpy().astype(np.float32)  # (3,C)
+        return JSONResponse(_json_sanitize({"step": int(step), "idx": int(idx), "n_channels": int(rgb.shape[-1]), "rgb": rgb.tolist()}))
+
+    def _reader_thread(p: subprocess.Popen) -> None:
+        try:
+            assert p.stdout is not None
+            for line in p.stdout:
+                s = line.rstrip("\n")
+                if s:
+                    rstate.lines.append(s)
+        except Exception:
+            pass
+
+    @app.post("/api/run/start")
+    def run_start(
+        n_start: int = Query(default=200, ge=1),
+        n_steps: int = Query(default=2000, ge=1),
+        topk: int = Query(default=50, ge=1),
+        robustness_samples: int = Query(default=8, ge=1),
+        device: str = Query(default="cpu"),
+        chunk_size: int = Query(default=64, ge=1),
+        fdtd_verify: int = Query(default=0, ge=0, le=1),
+    ) -> JSONResponse:
+        """Start inverse optimization as a subprocess."""
+        if rstate.proc is not None and rstate.proc.poll() is None:
+            return JSONResponse({"ok": False, "error": "run already in progress"}, status_code=409)
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "scripts.run_inverse",
+            "--config",
+            "configs/inverse.yaml",
+            "--n-start",
+            str(int(n_start)),
+            "--n-steps",
+            str(int(n_steps)),
+            "--topk",
+            str(int(topk)),
+            "--robustness-samples",
+            str(int(robustness_samples)),
+            "--device",
+            str(device),
+            "--chunk-size",
+            str(int(chunk_size)),
+            "--print-every",
+            "10",
+            "--progress-dir",
+            str(progress_dir),
+            "--fdtd-verify",
+            "on" if int(fdtd_verify) == 1 else "off",
+        ]
+        rstate.lines.clear()
+        rstate.started_ts = datetime.now(timezone.utc).isoformat()
+        rstate.last_exit_code = None
+
+        p = subprocess.Popen(
+            cmd,
+            cwd=str(Path(__file__).resolve().parents[2]),  # repo root
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        rstate.proc = p
+        t = threading.Thread(target=_reader_thread, args=(p,), daemon=True)
+        t.start()
+        return JSONResponse({"ok": True, "pid": int(p.pid), "cmd": cmd})
+
+    @app.get("/api/run/status")
+    def run_status() -> JSONResponse:
+        p = rstate.proc
+        running = p is not None and p.poll() is None
+        code = None
+        if p is not None and not running:
+            code = p.poll()
+            rstate.last_exit_code = code
+        return JSONResponse(
+            _json_sanitize(
+                {
+                    "running": bool(running),
+                    "pid": int(p.pid) if p is not None else None,
+                    "started_ts": rstate.started_ts,
+                    "last_exit_code": rstate.last_exit_code,
+                    "tail": list(rstate.lines)[-50:],
+                }
+            )
+        )
 
     @app.get("/api/status")
     def status(window: str = Query(default="all")) -> JSONResponse:
