@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .config import InverseDesignConfig
 from .inverse_opt import run_inverse_opt
+from .fdtd_verify import resolve_fdtd_cfg, verify_topk_with_fdtd
 from .ranking import rank_by_fdtd
 from .surrogate_interface import CRReconSurrogate, MockSurrogate
 
@@ -56,6 +57,14 @@ def build_parser() -> argparse.ArgumentParser:
     rank = sub.add_parser("rank", help="Rank by FDTD (FDTD-first)")
     rank.add_argument("--fdtd-npy", required=True, help="Path to FDTD RGGB spectra .npy (K,2,2,C)")
     rank.add_argument("--out-dir", default="data/final")
+
+    fv = sub.add_parser("fdtd-verify", help="Run Lumerical FDTD on Top-K structures")
+    fv.add_argument("--inverse-config", default="configs/inverse.yaml")
+    fv.add_argument("--fdtd-config", default="configs/fdtd.yaml")
+    fv.add_argument("--topk-npz", required=True, help="Path to topk_pack.npz (must contain struct128_topk)")
+    fv.add_argument("--out-dir", default="data/fdtd_results")
+    fv.add_argument("--k", type=int, default=None, help="How many top-k to verify (default: all in npz)")
+    fv.add_argument("--layer-map", default="1:0", help="GDS layer map for Lumerical gdsimport, e.g. 1:0")
 
     verify = sub.add_parser("integration-verify", help="Write integration verify reports")
     verify.add_argument("--out-dir", default="REPORTS")
@@ -158,6 +167,21 @@ def cmd_rank(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_fdtd_verify(args: argparse.Namespace) -> int:
+    inv_cfg = InverseDesignConfig.from_yaml(args.inverse_config)
+    fdtd_cfg = resolve_fdtd_cfg(fdtd_yaml=args.fdtd_config, inverse_cfg=inv_cfg)
+    res = verify_topk_with_fdtd(
+        topk_npz=args.topk_npz,
+        inverse_cfg=inv_cfg,
+        fdtd_cfg=fdtd_cfg,
+        out_dir=args.out_dir,
+        k=args.k,
+        layer_map=args.layer_map,
+    )
+    print(f"[OK] fdtd-verify done: out_dir={res.out_dir} fdtd_rggb={res.fdtd_rggb_path} report={res.ranking_report}")
+    return 0
+
+
 def cmd_integration_verify(args: argparse.Namespace) -> int:
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -198,6 +222,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_inverse(args)
     if args.cmd == "rank":
         return cmd_rank(args)
+    if args.cmd == "fdtd-verify":
+        return cmd_fdtd_verify(args)
     if args.cmd == "integration-verify":
         return cmd_integration_verify(args)
     raise SystemExit(f"unknown cmd: {args.cmd}")

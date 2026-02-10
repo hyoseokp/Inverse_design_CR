@@ -114,18 +114,31 @@ class LumapiBridge:
         self._fdtd.run()
 
     def extract_spectra(self) -> np.ndarray:
-        """Extract template-dependent spectra as a numpy array.
+        """Extract template-dependent spectra as RGGB.
 
-        This default expects the template extraction script to define:
-          - f_vec, T1, T2, T3
-        and returns a stacked array: (4, N) where rows are [f_vec, T1, T2, T3].
+        The default script (`extract_spectra_script`) defines:
+          - f_vec (unused here, but left for debugging)
+          - T transmission array for 4 outputs (shape (4,N) or (N,4) or (2,2,N))
+
+        Returns:
+          t_rggb: (2,2,N) float32
         """
         if self._fdtd is None:
             raise RuntimeError("FDTD session not open")
         self._fdtd.eval(extract_spectra_script())
-        f_vec = np.asarray(self._fdtd.getv("f_vec")).astype(np.float32).reshape(-1)
-        t1 = np.asarray(self._fdtd.getv("T1")).astype(np.float32).reshape(-1)
-        t2 = np.asarray(self._fdtd.getv("T2")).astype(np.float32).reshape(-1)
-        t3 = np.asarray(self._fdtd.getv("T3")).astype(np.float32).reshape(-1)
-        return np.stack([f_vec, t1, t2, t3], axis=0)
+        _f = np.asarray(self._fdtd.getv("f_vec")).astype(np.float32).reshape(-1)
+        T = np.asarray(self._fdtd.getv("T")).astype(np.float32)
 
+        if T.ndim == 3 and T.shape[0:2] == (2, 2):
+            return T
+        if T.ndim != 2:
+            raise ValueError(f"expected T with ndim 2 (4,N) or (N,4), got shape={T.shape}")
+        if 4 in T.shape:
+            if T.shape[0] == 4:
+                v = T
+            else:
+                v = T.T
+            v = v.reshape(4, -1)
+            # Order: [0,1;2,3]
+            return v.reshape(2, 2, -1)
+        raise ValueError(f"expected T to have a 4-dim axis, got shape={T.shape}")

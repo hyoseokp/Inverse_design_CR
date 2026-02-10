@@ -20,13 +20,17 @@ def gds_import_script(
 
 
 def extract_spectra_script() -> str:
-    # Placeholder extract. Real script depends on template monitor/result names.
-    # If you know the correct monitor/object names in `air_SiN_2um_NA.fsp`, update here.
+    # Template-dependent extraction.
+    #
+    # Convention for this project:
+    # - A single monitor object named 'monitor' (update if needed)
+    # - getdata(monitor,'f') -> frequency or wavelength vector
+    # - getdata(monitor,'T') -> transmission array for 4 outputs
+    #   expected shape either (4,N) or (N,4)
+    #
+    # The python bridge will reshape T into RGGB: (2,2,N) using order [0,1;2,3].
     return (
-        "# TODO: replace with template-specific extraction.\n"
-        "# Example expects variables T1,T2,T3,f_vec to be assigned.\n"
-        "f_vec = getdata('monitor','f');\n"
-        "T1 = getdata('monitor','T1');\n"
-        "T2 = getdata('monitor','T2');\n"
-        "T3 = getdata('monitor','T3');\n"
+        "monitor_name = 'monitor';\n"
+        "f_vec = getdata(monitor_name,'f');\n"
+        "T = getdata(monitor_name,'T');\n"
     )
