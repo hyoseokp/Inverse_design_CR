@@ -16,6 +16,7 @@ import shutil
 
 import numpy as np
 import torch
+import yaml
 from fastapi import FastAPI, Query
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -367,17 +368,49 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         chunk_size: int = Query(default=64, ge=1),
         fdtd_verify: int = Query(default=0, ge=0, le=1),
         fdtd_every: int = Query(default=10, ge=0, le=100000),
+        w_purity: float | None = Query(default=None),
+        w_abs: float | None = Query(default=None),
+        w_gray: float | None = Query(default=None),
+        w_tv: float | None = Query(default=None),
+        w_fill: float | None = Query(default=None),
+        fill_min: float | None = Query(default=None),
+        fill_max: float | None = Query(default=None),
     ) -> JSONResponse:
         """Start inverse optimization as a subprocess."""
         if rstate.proc is not None and rstate.proc.poll() is None:
             return JSONResponse({"ok": False, "error": "run already in progress"}, status_code=409)
+
+        # Allow per-run loss overrides from dashboard by writing a run-local config YAML.
+        base_cfg_path = Path(__file__).resolve().parents[2] / "configs" / "inverse.yaml"
+        cfg_path = base_cfg_path
+        overrides = {
+            "w_purity": w_purity,
+            "w_abs": w_abs,
+            "w_gray": w_gray,
+            "w_tv": w_tv,
+            "w_fill": w_fill,
+            "fill_min": fill_min,
+            "fill_max": fill_max,
+        }
+        if any(v is not None for v in overrides.values()):
+            obj = yaml.safe_load(base_cfg_path.read_text(encoding="utf-8")) or {}
+            if not isinstance(obj, dict):
+                obj = {}
+            loss = obj.get("loss") if isinstance(obj.get("loss"), dict) else {}
+            for k, v in overrides.items():
+                if v is None:
+                    continue
+                loss[k] = float(v)
+            obj["loss"] = loss
+            cfg_path = Path(progress_dir) / "run_config.yaml"
+            cfg_path.write_text(yaml.safe_dump(obj, sort_keys=False), encoding="utf-8")
 
         cmd = [
             sys.executable,
             "-m",
             "scripts.run_inverse",
             "--config",
-            "configs/inverse.yaml",
+            str(cfg_path),
             "--n-start",
             str(int(n_start)),
             "--n-steps",

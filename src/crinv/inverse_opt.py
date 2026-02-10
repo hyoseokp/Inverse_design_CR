@@ -73,6 +73,21 @@ def run_inverse_opt(
             "struct_size": int(cfg.struct_size),
             "random_seed": int(cfg.opt.random_seed),
             "device": str(device),
+            "generator": {
+                "backend": str(cfg.generator.backend),
+                "sigma_set": list(cfg.generator.sigma_set),
+                "tau0": float(cfg.generator.tau0),
+                "delta_tau": float(cfg.generator.delta_tau),
+            },
+            "loss": {
+                "w_purity": float(getattr(cfg.loss, "w_purity", 0.0)),
+                "w_abs": float(getattr(cfg.loss, "w_abs", 0.0)),
+                "w_gray": float(getattr(cfg.loss, "w_gray", 0.0)),
+                "w_tv": float(getattr(cfg.loss, "w_tv", 0.0)),
+                "w_fill": float(getattr(cfg.loss, "w_fill", 0.0)),
+                "fill_min": float(getattr(cfg.loss, "fill_min", 0.0)),
+                "fill_max": float(getattr(cfg.loss, "fill_max", 1.0)),
+            },
         }
     )
 
