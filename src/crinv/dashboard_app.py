@@ -8,7 +8,7 @@ import subprocess
 import sys
 import threading
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -100,7 +100,7 @@ class SpectrumCache:
 @dataclass
 class RunProcState:
     proc: subprocess.Popen | None = None
-    lines: deque[str] = deque(maxlen=400)
+    lines: deque[str] = field(default_factory=lambda: deque(maxlen=400))
     started_ts: str | None = None
     last_exit_code: int | None = None
 
