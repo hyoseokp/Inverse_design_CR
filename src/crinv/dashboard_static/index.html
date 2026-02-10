@@ -273,6 +273,10 @@
             <div class="kpi"><b>FDTD verify</b></div>
             <input id="fdtdToggle" type="checkbox" />
           </div>
+          <div class="toggleRow">
+            <div class="kpi"><b>Robust</b></div>
+            <input id="robustToggle" type="checkbox" checked />
+          </div>
         </div>
         <div class="controls">
           <div class="field">
@@ -455,6 +459,7 @@
         scale: localStorage.getItem('loss_scale') || 'log',
         window: localStorage.getItem('loss_window') || 'all',
         fdtd: (localStorage.getItem('fdtd_verify') || 'off'),
+        robust: (localStorage.getItem('robust_opt') || 'on'),
         topk_mode: (localStorage.getItem('topk_mode') || 'best'),
         invert_view: (localStorage.getItem('invert_view') || 'on'),
         selected: {step:null, idx:0},
@@ -884,13 +889,32 @@ L_{\\mathrm{abs}}=\\lVert \\mathbf{1}-\\mathrm{diag}(A)\\rVert_2^2.\\\\
           if (ui.selected.step != null) loadSpectrum(ui.selected.step, ui.selected.idx);
         });
       }
+
+      // Robustness toggle (deterministic nominal when off)
+      const robustToggle = document.getElementById('robustToggle');
+      if (robustToggle) {
+        robustToggle.checked = (ui.robust === 'on');
+        robustToggle.addEventListener('change', () => {
+          ui.robust = robustToggle.checked ? 'on' : 'off';
+          localStorage.setItem('robust_opt', ui.robust);
+          // Disable robustness_samples input when off (forces 1)
+          const rIn = document.getElementById('inRobust');
+          if (rIn) {
+            if (ui.robust === 'off') { rIn.value = '1'; rIn.disabled = true; }
+            else { rIn.disabled = false; }
+          }
+        });
+        // initial state
+        const rIn = document.getElementById('inRobust');
+        if (rIn && ui.robust === 'off') { rIn.value = '1'; rIn.disabled = true; }
+      }
       const runBtn = document.getElementById('runBtn');
       if (runBtn) {
         runBtn.addEventListener('click', async () => {
           const nStart = Number(document.getElementById('inNStart')?.value || 200);
           const nSteps = Number(document.getElementById('inNSteps')?.value || 2000);
           const topk = Number(document.getElementById('inTopk')?.value || 50);
-          const rs = Number(document.getElementById('inRobust')?.value || 8);
+          let rs = Number(document.getElementById('inRobust')?.value || 8);
           const dev = String(document.getElementById('inDevice')?.value || 'cpu');
           const chunk = Number(document.getElementById('inChunk')?.value || 64);
           const fdtdEvery = Number(document.getElementById('inFdtdEvery')?.value || 10);
@@ -911,7 +935,9 @@ L_{\\mathrm{abs}}=\\lVert \\mathbf{1}-\\mathrm{diag}(A)\\rVert_2^2.\\\\
           localStorage.setItem('loss_fill_min', String(fillMin));
           localStorage.setItem('loss_fill_max', String(fillMax));
           try{
-            const url = `/api/run/start?n_start=${encodeURIComponent(nStart)}&n_steps=${encodeURIComponent(nSteps)}&topk=${encodeURIComponent(topk)}&robustness_samples=${encodeURIComponent(rs)}&device=${encodeURIComponent(dev)}&chunk_size=${encodeURIComponent(chunk)}&fdtd_verify=${ui.fdtd==='on'?1:0}&fdtd_every=${encodeURIComponent(fdtdEvery)}&w_purity=${encodeURIComponent(wPurity)}&w_abs=${encodeURIComponent(wAbs)}&w_gray=${encodeURIComponent(wGray)}&w_tv=${encodeURIComponent(wTV)}&w_fill=${encodeURIComponent(wFill)}&fill_min=${encodeURIComponent(fillMin)}&fill_max=${encodeURIComponent(fillMax)}`;
+            const robust = (ui.robust === 'on') ? 1 : 0;
+            if (robust === 0) rs = 1;
+            const url = `/api/run/start?n_start=${encodeURIComponent(nStart)}&n_steps=${encodeURIComponent(nSteps)}&topk=${encodeURIComponent(topk)}&robustness_samples=${encodeURIComponent(rs)}&robust=${encodeURIComponent(robust)}&device=${encodeURIComponent(dev)}&chunk_size=${encodeURIComponent(chunk)}&fdtd_verify=${ui.fdtd==='on'?1:0}&fdtd_every=${encodeURIComponent(fdtdEvery)}&w_purity=${encodeURIComponent(wPurity)}&w_abs=${encodeURIComponent(wAbs)}&w_gray=${encodeURIComponent(wGray)}&w_tv=${encodeURIComponent(wTV)}&w_fill=${encodeURIComponent(wFill)}&fill_min=${encodeURIComponent(fillMin)}&fill_max=${encodeURIComponent(fillMax)}`;
             const r = await fetch(url, {method:'POST'});
             if (!r.ok) throw new Error(String(r.status));
             setRunStatus('started');

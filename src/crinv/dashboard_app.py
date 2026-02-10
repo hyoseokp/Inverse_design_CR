@@ -364,6 +364,7 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         n_steps: int = Query(default=2000, ge=1),
         topk: int = Query(default=50, ge=1),
         robustness_samples: int = Query(default=8, ge=1),
+        robust: int = Query(default=1, ge=0, le=1),
         device: str = Query(default="cpu"),
         chunk_size: int = Query(default=64, ge=1),
         fdtd_verify: int = Query(default=0, ge=0, le=1),
@@ -379,6 +380,12 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         """Start inverse optimization as a subprocess."""
         if rstate.proc is not None and rstate.proc.poll() is None:
             return JSONResponse({"ok": False, "error": "run already in progress"}, status_code=409)
+
+        # Robustness toggle: when off, force a deterministic (sigma,tau) at nominal values.
+        eff_robust_samples = int(robustness_samples)
+        robust_off = int(robust) == 0
+        if robust_off:
+            eff_robust_samples = 1
 
         # Allow per-run loss overrides from dashboard by writing a run-local config YAML.
         base_cfg_path = Path(__file__).resolve().parents[2] / "configs" / "inverse.yaml"
@@ -402,6 +409,24 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
                     continue
                 loss[k] = float(v)
             obj["loss"] = loss
+
+            # Robustness off => clamp generator sampling to nominal, and reduce MC samples to 1.
+            if robust_off:
+                opt_cfg = obj.get("opt") if isinstance(obj.get("opt"), dict) else {}
+                opt_cfg["robustness_samples"] = 1
+                obj["opt"] = opt_cfg
+
+                gen_cfg = obj.get("generator") if isinstance(obj.get("generator"), dict) else {}
+                sigmas = gen_cfg.get("sigma_set", None)
+                try:
+                    if isinstance(sigmas, list) and len(sigmas) > 0:
+                        nominal = float(sigmas[len(sigmas) // 2])
+                        gen_cfg["sigma_set"] = [nominal]
+                except Exception:
+                    # Best effort; if sigma_set isn't parseable, still force tau determinism.
+                    pass
+                gen_cfg["delta_tau"] = 0.0
+                obj["generator"] = gen_cfg
             cfg_path = Path(progress_dir) / "run_config.yaml"
             cfg_path.write_text(yaml.safe_dump(obj, sort_keys=False), encoding="utf-8")
 
@@ -418,7 +443,7 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
             "--topk",
             str(int(topk)),
             "--robustness-samples",
-            str(int(robustness_samples)),
+            str(int(eff_robust_samples)),
             "--device",
             str(device),
             "--chunk-size",
