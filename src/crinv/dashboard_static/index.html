@@ -80,7 +80,7 @@
       }
       .controls {
         display: grid;
-        grid-template-columns: 1.2fr 0.9fr 1fr 1fr 1fr 1fr 1fr 1fr auto;
+        grid-template-columns: 1.2fr 1fr 1fr 1fr 1fr 1fr 1fr auto;
         gap: 10px;
         align-items: end;
         margin-top: 10px;
@@ -283,13 +283,6 @@
             </select>
           </div>
           <div class="field">
-            <label for="inEngine">engine</label>
-            <select id="inEngine">
-              <option value="ga" selected>ga</option>
-              <option value="adam">adam</option>
-            </select>
-          </div>
-          <div class="field">
             <label for="inNStart">n_start</label>
             <input id="inNStart" type="number" min="1" step="1" value="100" />
           </div>
@@ -318,33 +311,6 @@
           <button class="btn danger" id="resetBtn" type="button">Reset</button>
         </div>
         <div class="runStatus" id="runStatus"></div>
-
-        <details class="adv">
-          <summary>GA settings</summary>
-          <div class="controls loss">
-            <div class="field">
-              <label for="inGAElite">ga_elite</label>
-              <input id="inGAElite" type="number" step="1" value="8" />
-            </div>
-            <div class="field">
-              <label for="inGATourn">ga_tournament_k</label>
-              <input id="inGATourn" type="number" step="1" value="5" />
-            </div>
-            <div class="field">
-              <label for="inGACross">ga_crossover_alpha</label>
-              <input id="inGACross" type="number" step="0.05" value="0.5" />
-            </div>
-            <div class="field">
-              <label for="inGAMutSig">ga_mutation_sigma</label>
-              <input id="inGAMutSig" type="number" step="0.01" value="0.15" />
-            </div>
-            <div class="field">
-              <label for="inGAMutP">ga_mutation_p</label>
-              <input id="inGAMutP" type="number" step="0.05" value="0.2" />
-            </div>
-          </div>
-          <div class="hint">Used only when engine=ga.</div>
-        </details>
 
         <details class="adv">
           <summary>Loss weights</summary>
@@ -926,7 +892,6 @@ L_{\\mathrm{abs}}=\\lVert \\mathbf{1}-\\mathrm{diag}(A)\\rVert_2^2.\\\\
           const topk = Number(document.getElementById('inTopk')?.value || 50);
           const rs = Number(document.getElementById('inRobust')?.value || 8);
           const dev = String(document.getElementById('inDevice')?.value || 'cpu');
-          const engine = String(document.getElementById('inEngine')?.value || 'ga');
           const chunk = Number(document.getElementById('inChunk')?.value || 64);
           const fdtdEvery = Number(document.getElementById('inFdtdEvery')?.value || 10);
           const wPurity = Number(document.getElementById('inWPurity')?.value || 1.0);
@@ -937,12 +902,6 @@ L_{\\mathrm{abs}}=\\lVert \\mathbf{1}-\\mathrm{diag}(A)\\rVert_2^2.\\\\
           const fillMin = Number(document.getElementById('inFillMin')?.value || 0.2);
           const fillMax = Number(document.getElementById('inFillMax')?.value || 0.5);
 
-          const gaElite = Number(document.getElementById('inGAElite')?.value || 8);
-          const gaTourn = Number(document.getElementById('inGATourn')?.value || 5);
-          const gaCross = Number(document.getElementById('inGACross')?.value || 0.5);
-          const gaMutSig = Number(document.getElementById('inGAMutSig')?.value || 0.15);
-          const gaMutP = Number(document.getElementById('inGAMutP')?.value || 0.2);
-
           // persist
           localStorage.setItem('loss_w_purity', String(wPurity));
           localStorage.setItem('loss_w_abs', String(wAbs));
@@ -951,15 +910,8 @@ L_{\\mathrm{abs}}=\\lVert \\mathbf{1}-\\mathrm{diag}(A)\\rVert_2^2.\\\\
           localStorage.setItem('loss_w_fill', String(wFill));
           localStorage.setItem('loss_fill_min', String(fillMin));
           localStorage.setItem('loss_fill_max', String(fillMax));
-
-          localStorage.setItem('ga_elite', String(gaElite));
-          localStorage.setItem('ga_tourn', String(gaTourn));
-          localStorage.setItem('ga_cross', String(gaCross));
-          localStorage.setItem('ga_mutsig', String(gaMutSig));
-          localStorage.setItem('ga_mutp', String(gaMutP));
-
           try{
-            const url = `/api/run/start?n_start=${encodeURIComponent(nStart)}&n_steps=${encodeURIComponent(nSteps)}&topk=${encodeURIComponent(topk)}&robustness_samples=${encodeURIComponent(rs)}&engine=${encodeURIComponent(engine)}&device=${encodeURIComponent(dev)}&chunk_size=${encodeURIComponent(chunk)}&fdtd_verify=${ui.fdtd==='on'?1:0}&fdtd_every=${encodeURIComponent(fdtdEvery)}&ga_elite=${encodeURIComponent(gaElite)}&ga_tournament_k=${encodeURIComponent(gaTourn)}&ga_crossover_alpha=${encodeURIComponent(gaCross)}&ga_mutation_sigma=${encodeURIComponent(gaMutSig)}&ga_mutation_p=${encodeURIComponent(gaMutP)}&w_purity=${encodeURIComponent(wPurity)}&w_abs=${encodeURIComponent(wAbs)}&w_gray=${encodeURIComponent(wGray)}&w_tv=${encodeURIComponent(wTV)}&w_fill=${encodeURIComponent(wFill)}&fill_min=${encodeURIComponent(fillMin)}&fill_max=${encodeURIComponent(fillMax)}`;
+            const url = `/api/run/start?n_start=${encodeURIComponent(nStart)}&n_steps=${encodeURIComponent(nSteps)}&topk=${encodeURIComponent(topk)}&robustness_samples=${encodeURIComponent(rs)}&device=${encodeURIComponent(dev)}&chunk_size=${encodeURIComponent(chunk)}&fdtd_verify=${ui.fdtd==='on'?1:0}&fdtd_every=${encodeURIComponent(fdtdEvery)}&w_purity=${encodeURIComponent(wPurity)}&w_abs=${encodeURIComponent(wAbs)}&w_gray=${encodeURIComponent(wGray)}&w_tv=${encodeURIComponent(wTV)}&w_fill=${encodeURIComponent(wFill)}&fill_min=${encodeURIComponent(fillMin)}&fill_max=${encodeURIComponent(fillMax)}`;
             const r = await fetch(url, {method:'POST'});
             if (!r.ok) throw new Error(String(r.status));
             setRunStatus('started');
@@ -1034,12 +986,6 @@ L_{\\mathrm{abs}}=\\lVert \\mathbf{1}-\\mathrm{diag}(A)\\rVert_2^2.\\\\
         set('inWFill', 'loss_w_fill', 1.0);
         set('inFillMin', 'loss_fill_min', 0.2);
         set('inFillMax', 'loss_fill_max', 0.5);
-
-        set('inGAElite', 'ga_elite', 8);
-        set('inGATourn', 'ga_tourn', 5);
-        set('inGACross', 'ga_cross', 0.5);
-        set('inGAMutSig', 'ga_mutsig', 0.15);
-        set('inGAMutP', 'ga_mutp', 0.2);
       }
       restoreLossInputs();
     </script>

@@ -364,16 +364,10 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         n_steps: int = Query(default=2000, ge=1),
         topk: int = Query(default=50, ge=1),
         robustness_samples: int = Query(default=8, ge=1),
-        engine: str = Query(default="ga"),
         device: str = Query(default="cpu"),
         chunk_size: int = Query(default=64, ge=1),
         fdtd_verify: int = Query(default=0, ge=0, le=1),
         fdtd_every: int = Query(default=10, ge=0, le=100000),
-        ga_elite: int | None = Query(default=None),
-        ga_tournament_k: int | None = Query(default=None),
-        ga_crossover_alpha: float | None = Query(default=None),
-        ga_mutation_sigma: float | None = Query(default=None),
-        ga_mutation_p: float | None = Query(default=None),
         w_purity: float | None = Query(default=None),
         w_abs: float | None = Query(default=None),
         w_gray: float | None = Query(default=None),
@@ -398,15 +392,7 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
             "fill_min": fill_min,
             "fill_max": fill_max,
         }
-        opt_overrides = {
-            "engine": (str(engine).lower() if engine is not None else None),
-            "ga_elite": ga_elite,
-            "ga_tournament_k": ga_tournament_k,
-            "ga_crossover_alpha": ga_crossover_alpha,
-            "ga_mutation_sigma": ga_mutation_sigma,
-            "ga_mutation_p": ga_mutation_p,
-        }
-        if any(v is not None for v in overrides.values()) or any(v is not None for v in opt_overrides.values()):
+        if any(v is not None for v in overrides.values()):
             obj = yaml.safe_load(base_cfg_path.read_text(encoding="utf-8")) or {}
             if not isinstance(obj, dict):
                 obj = {}
@@ -416,19 +402,6 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
                     continue
                 loss[k] = float(v)
             obj["loss"] = loss
-
-            opt = obj.get("opt") if isinstance(obj.get("opt"), dict) else {}
-            for k, v in opt_overrides.items():
-                if v is None:
-                    continue
-                if k == "engine":
-                    opt[k] = str(v)
-                elif k in ("ga_elite", "ga_tournament_k"):
-                    opt[k] = int(v)
-                else:
-                    opt[k] = float(v)
-            obj["opt"] = opt
-
             cfg_path = Path(progress_dir) / "run_config.yaml"
             cfg_path.write_text(yaml.safe_dump(obj, sort_keys=False), encoding="utf-8")
 
@@ -446,8 +419,6 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
             str(int(topk)),
             "--robustness-samples",
             str(int(robustness_samples)),
-            "--engine",
-            str(engine),
             "--device",
             str(device),
             "--chunk-size",
