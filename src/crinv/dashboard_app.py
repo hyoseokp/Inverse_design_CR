@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+import shutil
 
 import numpy as np
 import torch
@@ -434,6 +435,65 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
                 }
             )
         )
+
+    @app.post("/api/run/stop")
+    def run_stop() -> JSONResponse:
+        p = rstate.proc
+        if p is None or p.poll() is not None:
+            return JSONResponse({"ok": True, "stopped": False, "error": "no running process"})
+        try:
+            rstate.lines.append("[dashboard] stopping run...")
+            p.terminate()
+            try:
+                p.wait(timeout=3.0)
+            except Exception:
+                pass
+            if p.poll() is None:
+                rstate.lines.append("[dashboard] terminate timed out; killing...")
+                p.kill()
+            code = p.poll()
+            rstate.last_exit_code = code
+            rstate.lines.append(f"[dashboard] stopped (exit={code})")
+            return JSONResponse({"ok": True, "stopped": True, "exit_code": code})
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
+
+    @app.post("/api/run/reset")
+    def run_reset() -> JSONResponse:
+        """Archive current progress_dir contents and reset it to empty."""
+        # Refuse to reset while a run is active.
+        p = rstate.proc
+        if p is not None and p.poll() is None:
+            return JSONResponse({"ok": False, "error": "run in progress; stop first"}, status_code=409)
+
+        try:
+            if not progress_dir.exists():
+                progress_dir.mkdir(parents=True, exist_ok=True)
+            archive_root = progress_dir.parent / "progress_archive"
+            archive_root.mkdir(parents=True, exist_ok=True)
+            ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            dst = archive_root / f"{progress_dir.name}_{ts}"
+            dst.mkdir(parents=True, exist_ok=True)
+
+            moved = []
+            for item in list(progress_dir.iterdir()):
+                # Keep the directory itself; move everything inside.
+                target = dst / item.name
+                try:
+                    shutil.move(str(item), str(target))
+                    moved.append(item.name)
+                except Exception:
+                    # Best-effort; ignore file locking issues.
+                    pass
+
+            # Recreate expected subdir.
+            (progress_dir / "previews").mkdir(parents=True, exist_ok=True)
+            rstate.lines.clear()
+            rstate.started_ts = None
+            rstate.last_exit_code = None
+            return JSONResponse({"ok": True, "archived_to": str(dst), "moved": moved})
+        except Exception as e:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=500)
 
     @app.get("/api/status")
     def status(window: str = Query(default="all")) -> JSONResponse:

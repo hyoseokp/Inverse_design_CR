@@ -134,6 +134,15 @@
         box-shadow: var(--shadow);
       }
       .btn:active { transform: translateY(1px); }
+      .btn.secondary {
+        background: #f8fafc;
+        color: #0f172a;
+        border: 1px solid var(--border);
+        box-shadow: none;
+      }
+      .btn.danger {
+        background: linear-gradient(180deg, #ef4444, #b91c1c);
+      }
       .runStatus {
         margin-top: 8px;
         font-size: 12px;
@@ -283,6 +292,8 @@
             <input id="inFdtdEvery" type="number" min="0" step="1" value="10" />
           </div>
           <button class="btn" id="runBtn">Run optimization</button>
+          <button class="btn secondary" id="stopBtn" type="button">Stop</button>
+          <button class="btn danger" id="resetBtn" type="button">Reset</button>
         </div>
         <div class="runStatus" id="runStatus"></div>
       </div>
@@ -389,6 +400,16 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
         const r = await fetch(url, {cache:'no-store'});
         if (!r.ok) throw new Error(String(r.status));
         return await r.json();
+      }
+      function withCacheBust(u, token){
+        try{
+          const url = new URL(u, window.location.href);
+          url.searchParams.set('v', String(token));
+          return url.pathname + url.search;
+        } catch(e) {
+          // Fallback: naive.
+          return u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(String(token));
+        }
       }
 
       const ui = {
@@ -640,13 +661,13 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
             let html = '';
             const maxShow = Math.min(imgs.length, 8);
             for (let i=0;i<maxShow;i++){
-              const src = imgs[i] + '&v=' + encodeURIComponent(String(t.step));
+              const src = withCacheBust(imgs[i], t.step);
               const cap = [
                 (ui.topk_mode === 'cur') && cur && cur[i]!=null ? `cur_loss=${Number(cur[i]).toFixed(6)}` : null,
                 (ui.topk_mode !== 'cur') && best && best[i]!=null ? `best_loss=${Number(best[i]).toFixed(6)}` : null,
                 fill && fill[i]!=null ? `fill=${Number(fill[i]).toFixed(3)}` : null
               ].filter(Boolean).join('  ') || `k=${i}`;
-              html += `<div class="thumb" data-step="${t.step}" data-idx="${i}"><img src="${src}" /><div class="cap">${cap}</div></div>`;
+              html += `<div class="thumb" data-step="${t.step}" data-idx="${i}"><img src="${src}" onerror="this.closest('.thumb').classList.add('err'); this.alt='image failed';" /><div class="cap">${cap}</div></div>`;
             }
             thumbs.innerHTML = html;
             topkHint.textContent = 'click a thumb to plot spectrum';
@@ -770,6 +791,36 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
             setRunStatus('started');
           } catch(e) {
             setRunStatus('failed to start');
+          }
+        });
+      }
+      const stopBtn = document.getElementById('stopBtn');
+      if (stopBtn) {
+        stopBtn.addEventListener('click', async () => {
+          try{
+            const r = await fetch('/api/run/stop', {method:'POST'});
+            if (!r.ok) throw new Error(String(r.status));
+            const j = await r.json();
+            setRunStatus(j.stopped ? 'stopped' : (j.error || 'no run'));
+          } catch(e) {
+            setRunStatus('stop failed');
+          }
+        });
+      }
+      const resetBtn = document.getElementById('resetBtn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+          if (!confirm('Reset progress? This archives current data/progress into data/progress_archive.')) return;
+          try{
+            const r = await fetch('/api/run/reset', {method:'POST'});
+            if (!r.ok) throw new Error(String(r.status));
+            const j = await r.json();
+            ui.lastTopkKey = '';
+            thumbs.innerHTML = '';
+            topkHint.textContent = '';
+            setRunStatus('reset ok');
+          } catch(e) {
+            setRunStatus('reset failed');
           }
         });
       }
