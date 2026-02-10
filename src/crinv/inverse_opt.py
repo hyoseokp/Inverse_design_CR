@@ -15,7 +15,6 @@ from .progress_logger import ProgressLogger
 from .seed import seed_from_araw
 from .surrogate_interface import ForwardSurrogate
 from .losses import spectral_terms_from_rggb
-from .ga_opt import run_inverse_ga
 
 
 @dataclass(frozen=True)
@@ -40,20 +39,8 @@ def run_inverse_opt(
     progress_hook: Callable[[dict], None] | None = None,
     snapshot_hook: Callable[[dict], None] | None = None,
 ) -> InverseRunResult:
-    """Run inverse optimization (Adam or GA) with top-K export and file-based progress logging."""
+    """Multi-start inverse optimization with top-K export and file-based progress logging."""
     device = torch.device(device)
-
-    if str(getattr(cfg.opt, "engine", "adam")).lower() == "ga":
-        res = run_inverse_ga(
-            cfg=cfg,
-            surrogate=surrogate,
-            out_root=out_root,
-            progress_dir=progress_dir,
-            device=device,
-            progress_hook=progress_hook,
-            snapshot_hook=snapshot_hook,
-        )
-        return InverseRunResult(run_dir=res.run_dir, topk_path=res.topk_path)
 
     B = int(cfg.opt.n_start)
     steps = int(cfg.opt.n_steps)

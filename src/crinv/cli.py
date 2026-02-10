@@ -38,7 +38,6 @@ def build_parser() -> argparse.ArgumentParser:
     inv.add_argument("--n-steps", type=int, default=None)
     inv.add_argument("--topk", type=int, default=None)
     inv.add_argument("--robustness-samples", type=int, default=None)
-    inv.add_argument("--engine", choices=["adam", "ga"], default=None, help="Optimization engine (adam|ga)")
     inv.add_argument("--chunk-size", type=int, default=None, help="Process n_start candidates in chunks (memory control)")
     inv.add_argument(
         "--loss-reduction",
@@ -91,8 +90,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def cmd_inverse(args: argparse.Namespace) -> int:
     cfg = InverseDesignConfig.from_yaml(args.config)
-    if args.engine is not None:
-        cfg.opt.engine = str(args.engine)
     if args.n_start is not None:
         cfg.opt.n_start = int(args.n_start)
     if args.n_steps is not None:
