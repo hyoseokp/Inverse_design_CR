@@ -41,12 +41,27 @@ class ProgressLogger:
         seed16_topk: np.ndarray,
         struct128_topk: np.ndarray,
         metrics_topk: dict[str, np.ndarray],
+        prefix: str = "topk",
     ) -> Path:
-        out = self.progress_dir / f"topk_step-{int(step)}.npz"
+        if not prefix:
+            raise ValueError("prefix must be non-empty")
+        out = self.progress_dir / f"{str(prefix)}_step-{int(step)}.npz"
         np.savez_compressed(
             out,
             seed16_topk=seed16_topk,
             struct128_topk=struct128_topk,
             **{f"metric_{k}": v for k, v in metrics_topk.items()},
         )
+        return out
+
+    def write_json(
+        self,
+        *,
+        name: str,
+        payload: dict[str, Any],
+    ) -> Path:
+        if not name:
+            raise ValueError("name must be non-empty")
+        out = self.progress_dir / name
+        out.write_text(json.dumps(payload, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
         return out

@@ -14,6 +14,7 @@ from .losses import robust_mc_loss
 from .progress_logger import ProgressLogger
 from .seed import seed_from_araw
 from .surrogate_interface import ForwardSurrogate
+from .losses import spectral_terms_from_rggb
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,8 @@ def run_inverse_opt(
 
     best_loss = torch.full((B,), float("inf"), device=device)
     best_seed = torch.zeros((B, cfg.seed_size, cfg.seed_size), device=device)
+    cur_loss = torch.zeros((B,), device=device)
+    cur_seed = torch.zeros((B, cfg.seed_size, cfg.seed_size), device=device)
 
     log_every = max(1, int(cfg.opt.log_every_n_steps))
 
@@ -136,6 +139,9 @@ def run_inverse_opt(
                 best_loss[i0:i1] = torch.where(improved, curr, best_loss[i0:i1])
                 s = seed_from_araw(a_chunk.detach())
                 best_seed[i0:i1] = torch.where(improved[:, None, None], s, best_seed[i0:i1])
+                # Track current snapshot (for diagnosing "stuck" best-of-run topk).
+                cur_loss[i0:i1] = curr
+                cur_seed[i0:i1] = s
 
         opt.step()
         # Reconstruct a scalar mean loss for logging/hook.
@@ -175,14 +181,28 @@ def run_inverse_opt(
             # Periodic Top-K snapshot for the dashboard.
             if (step % log_every == 0) or (step == steps - 1):
                 K = min(topk, B)
-                idx = torch.topk(-best_loss, k=K).indices
-                seed16_topk = best_seed[idx].detach().cpu()
-                struct_topk = struct_from_seed_nominal(seed16_topk.to(device), cfg=cfg).detach().cpu()
+                idx_best = torch.topk(-best_loss, k=K).indices
+                idx_cur = torch.topk(-cur_loss, k=K).indices
+
+                seed16_best = best_seed[idx_best].detach().cpu()
+                seed16_cur = cur_seed[idx_cur].detach().cpu()
+
+                struct_best = struct_from_seed_nominal(seed16_best.to(device), cfg=cfg).detach().cpu()
+                struct_cur = struct_from_seed_nominal(seed16_cur.to(device), cfg=cfg).detach().cpu()
+
                 plog.write_topk_snapshot(
                     step=step,
-                    seed16_topk=seed16_topk.numpy().astype(np.float32),
-                    struct128_topk=struct_topk.numpy().astype(np.uint8),
-                    metrics_topk={"best_loss": best_loss[idx].detach().cpu().numpy().astype(np.float32)},
+                    seed16_topk=seed16_best.numpy().astype(np.float32),
+                    struct128_topk=struct_best.numpy().astype(np.uint8),
+                    metrics_topk={"best_loss": best_loss[idx_best].detach().cpu().numpy().astype(np.float32)},
+                    prefix="topk",
+                )
+                plog.write_topk_snapshot(
+                    step=step,
+                    seed16_topk=seed16_cur.numpy().astype(np.float32),
+                    struct128_topk=struct_cur.numpy().astype(np.uint8),
+                    metrics_topk={"cur_loss": cur_loss[idx_cur].detach().cpu().numpy().astype(np.float32)},
+                    prefix="topk_cur",
                 )
                 if snapshot_hook is not None:
                     snapshot_hook(
@@ -193,6 +213,50 @@ def run_inverse_opt(
                             "topk_npz": str(Path(progress_dir) / f"topk_step-{int(step)}.npz"),
                         }
                     )
+
+                # Extra debug: Top-1 purity matrix A for best vs current at this snapshot.
+                try:
+                    # Use nominal structure + single surrogate eval for diagnostics.
+                    xb = struct_best[0].to(device=device, dtype=torch.float32).unsqueeze(0)
+                    xc = struct_cur[0].to(device=device, dtype=torch.float32).unsqueeze(0)
+                    with torch.no_grad():
+                        tb = surrogate.predict(xb)  # (1,2,2,C)
+                        tc = surrogate.predict(xc)
+                        _mb, _rgbb, Ab = spectral_terms_from_rggb(
+                            tb,
+                            n_channels_target=int(cfg.spectra.n_channels),
+                            band_ranges_nm=cfg.spectra.band_ranges_nm,
+                            band_indices_30=getattr(cfg.spectra, "band_indices_30", None),
+                        )
+                        _mc, _rgbc, Ac = spectral_terms_from_rggb(
+                            tc,
+                            n_channels_target=int(cfg.spectra.n_channels),
+                            band_ranges_nm=cfg.spectra.band_ranges_nm,
+                            band_indices_30=getattr(cfg.spectra, "band_indices_30", None),
+                        )
+
+                    Ab_np = Ab[0].detach().cpu().numpy().astype(np.float32)
+                    Ac_np = Ac[0].detach().cpu().numpy().astype(np.float32)
+                    purity = {
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "step": int(step),
+                        "best": {
+                            "A": Ab_np.tolist(),
+                            "diag": [float(Ab_np[0, 0]), float(Ab_np[1, 1]), float(Ab_np[2, 2])],
+                            "offdiag_mean": float((Ab_np.sum() - (Ab_np[0, 0] + Ab_np[1, 1] + Ab_np[2, 2])) / 6.0),
+                            "loss0": float(best_loss[idx_best[0]].detach().cpu().item()),
+                        },
+                        "cur": {
+                            "A": Ac_np.tolist(),
+                            "diag": [float(Ac_np[0, 0]), float(Ac_np[1, 1]), float(Ac_np[2, 2])],
+                            "offdiag_mean": float((Ac_np.sum() - (Ac_np[0, 0] + Ac_np[1, 1] + Ac_np[2, 2])) / 6.0),
+                            "loss0": float(cur_loss[idx_cur[0]].detach().cpu().item()),
+                        },
+                    }
+                    plog.write_json(name=f"purity_step-{int(step)}.json", payload=purity)
+                except Exception:
+                    # Diagnostics only; don't break optimization.
+                    pass
 
     with torch.no_grad():
         # Select top-K among best_loss (lower is better).

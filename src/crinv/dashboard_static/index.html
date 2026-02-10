@@ -202,6 +202,17 @@
       .thumb img { width: 100%; border-radius: 8px; image-rendering: pixelated; display: block; }
       .cap { font-size: 11px; color: #64748b; margin-top: 6px; }
       .hint { font-size: 11px; color: #64748b; margin-top: 6px; }
+      .purityBox {
+        margin-top: 10px;
+        background: #f8fafc;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+        color: #0f172a;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+      .purityMono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace; font-size: 11px; color: #334155; }
       .formulaBox {
         margin-top: 10px;
         background: #f8fafc;
@@ -316,7 +327,14 @@
         <div class="card panel">
           <div class="row">
             <div class="kpi"><b>Top-K</b> <span id="kpiTopk">-</span></div>
-            <div class="kpi" id="topkHint"></div>
+            <div class="row" style="gap:8px">
+              <div class="kpi">Mode</div>
+              <div class="segmented" id="topkModeToggle">
+                <button class="seg-btn" data-topk_mode="best">Best</button>
+                <button class="seg-btn" data-topk_mode="cur">Current</button>
+              </div>
+              <div class="kpi" id="topkHint"></div>
+            </div>
           </div>
           <div class="thumbs" id="thumbs"></div>
           <div class="hint">Tip: click a thumbnail to update spectrum.</div>
@@ -328,6 +346,7 @@
             <div class="kpi">robust MC: E_{sigma,tau}[L] (Monte Carlo average)</div>
           </div>
           <div class="formulaBox">
+            <div class="purityBox" id="purityBox" style="margin-bottom:10px">purity: (waiting for first snapshot)</div>
             <div class="formulaLatex" id="lossFormula"></div>
             <pre id="lossFormulaTex" style="display:none">\begin{aligned}
 &\textbf{Purity matrix (30ch bins):}\\
@@ -376,6 +395,7 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
         scale: localStorage.getItem('loss_scale') || 'log',
         window: localStorage.getItem('loss_window') || 'all',
         fdtd: (localStorage.getItem('fdtd_verify') || 'off'),
+        topk_mode: (localStorage.getItem('topk_mode') || 'best'),
         selected: {step:null, idx:0},
         lastTopkKey: ''
       };
@@ -388,7 +408,8 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
         buttons.forEach(b => {
           b.addEventListener('click', () => {
             ui[key] = b.dataset[key];
-            localStorage.setItem('loss_' + key, ui[key]);
+            if (key === 'scale' || key === 'window') localStorage.setItem('loss_' + key, ui[key]);
+            if (key === 'topk_mode') localStorage.setItem('topk_mode', ui[key]);
             sync();
             redraw();
           });
@@ -601,26 +622,28 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
 
         // TopK
         try{
-          const t = await fetchJSON('/api/topk/latest');
+          const t = await fetchJSON(`/api/topk/latest?mode=${encodeURIComponent(ui.topk_mode)}`);
           if (t.step == null) {
             kpiTopk.textContent = '(no snapshot)';
             thumbs.innerHTML = '';
             topkHint.textContent = '';
             return;
           }
-          const key = String(t.step) + ':' + String(t.k);
-          kpiTopk.textContent = `(step ${t.step}, K=${t.k})`;
+          const key = String(t.mode||ui.topk_mode) + ':' + String(t.step) + ':' + String(t.k);
+          kpiTopk.textContent = `(step ${t.step}, K=${t.k}, mode=${t.mode||ui.topk_mode})`;
           if (key !== ui.lastTopkKey) {
             ui.lastTopkKey = key;
             const imgs = t.images || [];
             const fill = t.fill_frac || [];
             const best = (t.metrics && t.metrics.metric_best_loss) ? t.metrics.metric_best_loss : null;
+            const cur = (t.metrics && t.metrics.metric_cur_loss) ? t.metrics.metric_cur_loss : null;
             let html = '';
             const maxShow = Math.min(imgs.length, 8);
             for (let i=0;i<maxShow;i++){
-              const src = imgs[i] + '?v=' + encodeURIComponent(String(t.step));
+              const src = imgs[i] + '&v=' + encodeURIComponent(String(t.step));
               const cap = [
-                best && best[i]!=null ? `best_loss=${Number(best[i]).toFixed(6)}` : null,
+                (ui.topk_mode === 'cur') && cur && cur[i]!=null ? `cur_loss=${Number(cur[i]).toFixed(6)}` : null,
+                (ui.topk_mode !== 'cur') && best && best[i]!=null ? `best_loss=${Number(best[i]).toFixed(6)}` : null,
                 fill && fill[i]!=null ? `fill=${Number(fill[i]).toFixed(3)}` : null
               ].filter(Boolean).join('  ') || `k=${i}`;
               html += `<div class="thumb" data-step="${t.step}" data-idx="${i}"><img src="${src}" /><div class="cap">${cap}</div></div>`;
@@ -634,12 +657,33 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
             await loadSpectrum(t.step, 0);
           }
         } catch(e) { /* ignore */ }
+
+        // Purity debug
+        try{
+          const p = await fetchJSON('/api/purity/latest');
+          const el = document.getElementById('purityBox');
+          if (el && p && p.step != null) {
+            const b = p.best || {};
+            const c = p.cur || {};
+            const fmtA = (A) => {
+              if (!A || !A.length) return '--';
+              return A.map(r => r.map(x => Number(x).toFixed(3)).join('  ')).join('\\n');
+            };
+            el.innerHTML = `
+              <div class="kpi"><b>Purity Debug</b> (step ${p.step})</div>
+              <div class="kpi">best: diag=${(b.diag||[]).map(x=>Number(x).toFixed(3)).join(', ')} offdiag_mean=${Number(b.offdiag_mean||0).toFixed(4)} loss0=${Number(b.loss0||0).toFixed(6)}</div>
+              <div class="purityMono">${fmtA(b.A).replace(/\\n/g,'<br/>')}</div>
+              <div class="kpi" style="margin-top:8px">cur: diag=${(c.diag||[]).map(x=>Number(x).toFixed(3)).join(', ')} offdiag_mean=${Number(c.offdiag_mean||0).toFixed(4)} loss0=${Number(c.loss0||0).toFixed(6)}</div>
+              <div class="purityMono">${fmtA(c.A).replace(/\\n/g,'<br/>')}</div>
+            `;
+          }
+        } catch(e) { /* ignore */ }
       }
 
       async function loadSpectrum(step, idx){
         kpiSpec.textContent = `(step ${step}, k=${idx})`;
         try{
-          const s = await fetchJSON(`/api/topk/${step}/${idx}/spectrum`);
+          const s = await fetchJSON(`/api/topk/${step}/${idx}/spectrum?mode=${encodeURIComponent(ui.topk_mode)}`);
           const rgb = s.rgb || null;
           if (!rgb) throw new Error('no rgb');
           const C = rgb[0].length;
@@ -694,6 +738,7 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
 
       initSegmented(document.getElementById('scaleToggle'), 'scale', ['log','linear']);
       initSegmented(document.getElementById('windowToggle'), 'window', ['all','200','50']);
+      initSegmented(document.getElementById('topkModeToggle'), 'topk_mode', ['best','cur']);
       makeLossChart();
       makeSpecChart();
 

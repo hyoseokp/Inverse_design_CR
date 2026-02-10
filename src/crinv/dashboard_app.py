@@ -22,7 +22,9 @@ from PIL import Image
 
 from .spectral import merge_rggb_to_rgb
 
-_TOPK_RE = re.compile(r"^topk_step-(\d+)\.npz$")
+_TOPK_RE_BEST = re.compile(r"^topk_step-(\d+)\.npz$")
+_TOPK_RE_CUR = re.compile(r"^topk_cur_step-(\d+)\.npz$")
+_PURITY_RE = re.compile(r"^purity_step-(\d+)\.json$")
 
 
 def _json_sanitize(obj: Any) -> Any:
@@ -87,7 +89,7 @@ def _ts_start_epoch(meta: dict[str, Any]) -> float | None:
 
 @dataclass
 class TopKCache:
-    step: int | None = None
+    key: tuple[str, int] | None = None
     npz: dict[str, np.ndarray] | None = None
 
 
@@ -150,9 +152,11 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
                     items.append({"name": p.name, "bytes": None, "is_dir": p.is_dir()})
         return JSONResponse({"progress_dir": str(progress_dir), "exists": progress_dir.exists(), "items": items})
 
-    def _latest_topk_step() -> int | None:
+    def _latest_topk_step(*, mode: str) -> int | None:
         if not progress_dir.exists():
             return None
+        mode = str(mode or "best").lower()
+        rx = _TOPK_RE_BEST if mode != "cur" else _TOPK_RE_CUR
         meta = _read_meta(progress_dir)
         nsteps = meta.get("n_steps")
         max_step = None
@@ -166,7 +170,7 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         ts0 = _ts_start_epoch(meta)
         best = None
         for p in progress_dir.iterdir():
-            m = _TOPK_RE.match(p.name)
+            m = rx.match(p.name)
             if not m:
                 continue
             step = int(m.group(1))
@@ -182,23 +186,26 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
                 best = step
         return best
 
-    def _load_topk(step: int) -> dict[str, np.ndarray]:
-        if cache.step == step and cache.npz is not None:
+    def _load_topk(step: int, *, mode: str) -> dict[str, np.ndarray]:
+        mode = str(mode or "best").lower()
+        key = (("cur" if mode == "cur" else "best"), int(step))
+        if cache.key == key and cache.npz is not None:
             return cache.npz
-        p = progress_dir / f"topk_step-{int(step)}.npz"
+        prefix = "topk_cur" if mode == "cur" else "topk"
+        p = progress_dir / f"{prefix}_step-{int(step)}.npz"
         z = np.load(p, allow_pickle=False)
         data = {k: z[k] for k in z.files}
-        cache.step = step
+        cache.key = key
         cache.npz = data
         return data
 
     @app.get("/api/topk/latest")
-    def topk_latest() -> JSONResponse:
-        step = _latest_topk_step()
+    def topk_latest(mode: str = Query(default="best")) -> JSONResponse:
+        step = _latest_topk_step(mode=mode)
         if step is None:
             return JSONResponse({"step": None, "k": 0, "metrics": {}})
         try:
-            data = _load_topk(step)
+            data = _load_topk(step, mode=mode)
         except Exception as e:
             return JSONResponse({"step": int(step), "k": 0, "error": f"failed to load npz: {e}"}, status_code=500)
         struct = data.get("struct128_topk")
@@ -217,7 +224,8 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
                 {
                     "step": int(step),
                     "k": k,
-                    "images": [f"/api/topk/{int(step)}/{i}.png" for i in range(k)],
+                    "mode": ("cur" if str(mode).lower() == "cur" else "best"),
+                    "images": [f"/api/topk/{int(step)}/{i}.png?mode={('cur' if str(mode).lower() == 'cur' else 'best')}" for i in range(k)],
                     "metrics": metrics,
                     "fill_frac": fill,
                 }
@@ -225,9 +233,14 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         )
 
     @app.get("/api/topk/{step}/{idx}.png")
-    def topk_png(step: int, idx: int, invert: int = Query(default=1, ge=0, le=1)) -> Response:
+    def topk_png(
+        step: int,
+        idx: int,
+        invert: int = Query(default=1, ge=0, le=1),
+        mode: str = Query(default="best"),
+    ) -> Response:
         try:
-            data = _load_topk(int(step))
+            data = _load_topk(int(step), mode=mode)
         except Exception:
             return Response(status_code=500)
         struct = data["struct128_topk"]
@@ -248,14 +261,14 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         )
 
     @app.get("/api/topk/{step}/{idx}/spectrum")
-    def topk_spectrum(step: int, idx: int) -> JSONResponse:
+    def topk_spectrum(step: int, idx: int, mode: str = Query(default="best")) -> JSONResponse:
         if surrogate is None:
             return JSONResponse({"error": "surrogate not configured"}, status_code=400)
         key = (int(step), int(idx))
         if scache.key == key and scache.rgb is not None:
             rgb = scache.rgb
         else:
-            data = _load_topk(int(step))
+            data = _load_topk(int(step), mode=mode)
             struct = data["struct128_topk"]
             if idx < 0 or idx >= struct.shape[0]:
                 return JSONResponse({"error": "idx out of range"}, status_code=404)
@@ -268,6 +281,55 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
             scache.rgb = rgb
         C = int(rgb.shape[-1])
         return JSONResponse(_json_sanitize({"step": int(step), "idx": int(idx), "n_channels": C, "rgb": rgb.tolist()}))
+
+    def _latest_purity() -> dict[str, Any] | None:
+        if not progress_dir.exists():
+            return None
+        meta = _read_meta(progress_dir)
+        nsteps = meta.get("n_steps")
+        max_step = None
+        try:
+            nsteps = int(nsteps) if nsteps is not None else None
+            if nsteps is not None and nsteps > 0:
+                max_step = nsteps - 1
+        except Exception:
+            max_step = None
+
+        ts0 = _ts_start_epoch(meta)
+        best = None
+        best_path = None
+        for p in progress_dir.iterdir():
+            m = _PURITY_RE.match(p.name)
+            if not m:
+                continue
+            step = int(m.group(1))
+            if max_step is not None and step > max_step:
+                continue
+            if ts0 is not None:
+                try:
+                    if p.stat().st_mtime < ts0:
+                        continue
+                except Exception:
+                    pass
+            if best is None or step > best:
+                best = step
+                best_path = p
+        if best_path is None:
+            return None
+        try:
+            obj = json.loads(best_path.read_text(encoding="utf-8", errors="replace"))
+            if isinstance(obj, dict):
+                return obj
+        except Exception:
+            return None
+        return None
+
+    @app.get("/api/purity/latest")
+    def purity_latest() -> JSONResponse:
+        obj = _latest_purity()
+        if obj is None:
+            return JSONResponse({"step": None})
+        return JSONResponse(_json_sanitize(obj))
 
     @app.get("/api/topk/{step}/{idx}/fdtd_spectrum")
     def topk_fdtd_spectrum(step: int, idx: int) -> JSONResponse:
