@@ -303,6 +303,7 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
         device: str = Query(default="cpu"),
         chunk_size: int = Query(default=64, ge=1),
         fdtd_verify: int = Query(default=0, ge=0, le=1),
+        fdtd_every: int = Query(default=10, ge=0, le=100000),
     ) -> JSONResponse:
         """Start inverse optimization as a subprocess."""
         if rstate.proc is not None and rstate.proc.poll() is None:
@@ -333,6 +334,8 @@ def create_app(*, progress_dir: Path, surrogate=None) -> FastAPI:
             "--fdtd-verify",
             "on" if int(fdtd_verify) == 1 else "off",
         ]
+        if int(fdtd_verify) == 1 and int(fdtd_every) > 0:
+            cmd += ["--fdtd-every", str(int(fdtd_every))]
         rstate.lines.clear()
         rstate.started_ts = datetime.now(timezone.utc).isoformat()
         rstate.last_exit_code = None

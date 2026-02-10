@@ -36,6 +36,7 @@ def run_inverse_opt(
     progress_dir: str | Path = "data/progress",
     device: str | torch.device = "cpu",
     progress_hook: Callable[[dict], None] | None = None,
+    snapshot_hook: Callable[[dict], None] | None = None,
 ) -> InverseRunResult:
     """Multi-start inverse optimization with top-K export and file-based progress logging."""
     device = torch.device(device)
@@ -183,6 +184,15 @@ def run_inverse_opt(
                     struct128_topk=struct_topk.numpy().astype(np.uint8),
                     metrics_topk={"best_loss": best_loss[idx].detach().cpu().numpy().astype(np.float32)},
                 )
+                if snapshot_hook is not None:
+                    snapshot_hook(
+                        {
+                            "ts": datetime.now(timezone.utc).isoformat(),
+                            "step": int(step),
+                            "n_steps": int(steps),
+                            "topk_npz": str(Path(progress_dir) / f"topk_step-{int(step)}.npz"),
+                        }
+                    )
 
     with torch.no_grad():
         # Select top-K among best_loss (lower is better).

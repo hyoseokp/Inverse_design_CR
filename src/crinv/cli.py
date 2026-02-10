@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import time
 from pathlib import Path
+import threading
 
 from .config import InverseDesignConfig
 from .inverse_opt import run_inverse_opt
@@ -52,6 +53,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     inv.add_argument("--fdtd-k", type=int, default=None, help="How many top-k items to verify via FDTD (default: all)")
     inv.add_argument("--fdtd-config", default="configs/fdtd.yaml", help="FDTD config YAML for verification")
+    inv.add_argument(
+        "--fdtd-every",
+        type=int,
+        default=0,
+        help="If >0, run FDTD verification periodically on topk snapshots every N steps (non-blocking).",
+    )
     inv.add_argument(
         "--print-every",
         type=int,
@@ -141,6 +148,94 @@ def cmd_inverse(args: argparse.Namespace) -> int:
     t0 = time.monotonic()
     last_print_step = -1
 
+    # Decide FDTD mode up-front so we can wire periodic verification during the run.
+    do_fdtd = str(args.fdtd_verify)
+    if do_fdtd == "ask":
+        try:
+            ans = input("Run FDTD verification on Top-K now? [y/N] ").strip().lower()
+            do_fdtd = "on" if ans in ("y", "yes") else "off"
+        except Exception:
+            do_fdtd = "off"
+
+    fdtd_every = int(getattr(args, "fdtd_every", 0) or 0)
+    if fdtd_every < 0:
+        raise ValueError("--fdtd-every must be >= 0")
+
+    fdtd_cfg = None
+    if do_fdtd == "on":
+        try:
+            fdtd_cfg = resolve_fdtd_cfg(fdtd_yaml=args.fdtd_config, inverse_cfg=cfg)
+        except Exception as e:
+            print(f"[WARN] FDTD config not ready; disabling FDTD verify: {e}")
+            do_fdtd = "off"
+
+    class _FDTDScheduler:
+        def __init__(self):
+            self.lock = threading.Lock()
+            self.thread: threading.Thread | None = None
+            self.pending: tuple[int, str] | None = None
+            self.verified: set[int] = set()
+
+        def request(self, *, step: int, topk_npz: str) -> None:
+            with self.lock:
+                if step in self.verified:
+                    return
+                self.pending = (int(step), str(topk_npz))
+                self._maybe_start_locked()
+
+        def _maybe_start_locked(self) -> None:
+            if self.thread is not None and self.thread.is_alive():
+                return
+            if self.pending is None:
+                return
+            step, topk_npz = self.pending
+            self.pending = None
+
+            def _worker() -> None:
+                try:
+                    assert fdtd_cfg is not None
+                    v = verify_topk_with_fdtd(
+                        topk_npz=topk_npz,
+                        inverse_cfg=cfg,
+                        fdtd_cfg=fdtd_cfg,
+                        out_dir="data/fdtd_results",
+                        k=args.fdtd_k,
+                    )
+                    import shutil
+                    import json as _json
+
+                    pdir = Path(args.progress_dir)
+                    pdir.mkdir(parents=True, exist_ok=True)
+                    dst = pdir / f"fdtd_rggb_step-{int(step)}.npy"
+                    shutil.copyfile(v.fdtd_rggb_path, dst)
+                    meta = {"step": int(step), "k": int(args.fdtd_k) if args.fdtd_k is not None else None, "out_dir": str(v.out_dir)}
+                    (pdir / "fdtd_meta.json").write_text(_json.dumps(meta, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+                    print(f"[OK] fdtd-verify saved: {dst}", flush=True)
+                    with self.lock:
+                        self.verified.add(int(step))
+                except Exception as e:
+                    print(f"[WARN] fdtd-verify failed (step={step}): {e}", flush=True)
+                finally:
+                    with self.lock:
+                        self.thread = None
+                        self._maybe_start_locked()
+
+            self.thread = threading.Thread(target=_worker, daemon=False)
+            self.thread.start()
+
+        def drain(self) -> None:
+            # Block until no worker and no pending request remain.
+            while True:
+                with self.lock:
+                    th = self.thread
+                    pending = self.pending
+                if th is None and pending is None:
+                    return
+                if th is not None:
+                    th.join(timeout=0.5)
+
+    fdtd_sched = _FDTDScheduler() if (do_fdtd == "on" and fdtd_every > 0 and fdtd_cfg is not None) else None
+
     def _hook(info: dict) -> None:
         nonlocal last_print_step
         step = int(info.get("step", -1))
@@ -155,6 +250,21 @@ def cmd_inverse(args: argparse.Namespace) -> int:
         loss_total = float(info.get("loss_total", float("nan")))
         print(f"[STEP {step}/{n_steps-1}] loss_total={loss_total:.6f} elapsed_s={elapsed:.1f}", flush=True)
 
+    def _snap_hook(info: dict) -> None:
+        if fdtd_sched is None:
+            return
+        step = int(info.get("step", -1))
+        n_steps = int(info.get("n_steps", cfg.opt.n_steps))
+        topk_npz = str(info.get("topk_npz", "") or "")
+        if not topk_npz:
+            return
+        if (step % fdtd_every != 0) and (step != n_steps - 1):
+            return
+        p = Path(topk_npz)
+        if not p.exists():
+            return
+        fdtd_sched.request(step=step, topk_npz=topk_npz)
+
     res = run_inverse_opt(
         cfg=cfg,
         surrogate=surrogate,
@@ -162,21 +272,20 @@ def cmd_inverse(args: argparse.Namespace) -> int:
         progress_dir=args.progress_dir,
         device=args.device,
         progress_hook=_hook,
+        snapshot_hook=_snap_hook,
     )
     print(f"[OK] inverse done: run_dir={res.run_dir} topk={res.topk_path}")
 
-    # Optional FDTD verification on Top-K.
-    do_fdtd = str(args.fdtd_verify)
-    if do_fdtd == "ask":
-        try:
-            ans = input("Run FDTD verification on Top-K now? [y/N] ").strip().lower()
-            do_fdtd = "on" if ans in ("y", "yes") else "off"
-        except Exception:
-            do_fdtd = "off"
-    if do_fdtd == "on":
+    # If periodic verification was enabled, drain the queue so the last requested
+    # step is written to progress_dir for the dashboard.
+    if fdtd_sched is not None:
+        fdtd_sched.drain()
+
+    # Optional one-shot FDTD verification on Top-K (end-only).
+    if do_fdtd == "on" and fdtd_every <= 0:
         try:
             inv_cfg = cfg
-            fdtd_cfg = resolve_fdtd_cfg(fdtd_yaml=args.fdtd_config, inverse_cfg=inv_cfg)
+            assert fdtd_cfg is not None
             v = verify_topk_with_fdtd(
                 topk_npz=res.topk_path,
                 inverse_cfg=inv_cfg,
