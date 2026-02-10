@@ -673,23 +673,24 @@
         const fill_min = numOr(L.fill_min, 0.2);
         const fill_max = numOr(L.fill_max, 0.5);
 
-        const tex = String.raw`\\begin{aligned}
-&\\textbf{Purity matrix (30ch bins):}\\\\
-&\\qquad I_B=\\{0,\\dots,9\\},\\ I_G=\\{10,\\dots,19\\},\\ I_R=\\{20,\\dots,29\\}.\\\\
-&\\qquad A_{c,b}=\\frac{1}{|I_b|}\\sum_{k\\in I_b} s_{c,k},\\qquad A\\in\\mathbb{R}^{3\\times 3}.\\\\[8pt]
-&\\textbf{Spectral loss:}\\\\
-&\\qquad L_{\\mathrm{purity}}=\\lVert A-I\\rVert_F^2,\\qquad
-L_{\\mathrm{abs}}=\\lVert \\mathbf{1}-\\mathrm{diag}(A)\\rVert_2^2.\\\\
-&\\qquad L_{\\mathrm{spec}}=${w_purity.toFixed(3)}\\,L_{\\mathrm{purity}}+${w_abs.toFixed(3)}\\,L_{\\mathrm{abs}}.\\\\[8pt]
-&\\textbf{Regularization:}\\\\
-&\\qquad L_{\\mathrm{gray}}=\\mathrm{mean}(u(1-u)),\\qquad L_{\\mathrm{tv}}=\\mathrm{TV}(u).\\\\
-&\\qquad L_{\\mathrm{reg}}=${w_gray.toFixed(3)}\\,L_{\\mathrm{gray}}+${w_tv.toFixed(3)}\\,L_{\\mathrm{tv}}.\\\\[8pt]
-&\\textbf{Fill constraint:}\\\\
-&\\qquad f=\\mathrm{mean}(x),\\quad f\\in[${fill_min.toFixed(2)},\\ ${fill_max.toFixed(2)}].\\\\
-&\\qquad L_{\\mathrm{fill}}=\\mathrm{softplus}(f_{\\min}-f)^2+\\mathrm{softplus}(f-f_{\\max})^2.\\\\[8pt]
-&\\textbf{Total (robust MC):}\\\\
-&\\qquad L_{\\mathrm{total}}=\\mathbb{E}_{(\\sigma,\\tau)}\\Big[L_{\\mathrm{spec}}+L_{\\mathrm{reg}}+${w_fill.toFixed(3)}\\,L_{\\mathrm{fill}}\\Big].
-\\end{aligned}`;
+        // Use a normal template literal. (String.raw would preserve backslashes and break KaTeX.)
+        const tex = `\\\\begin{aligned}
+&\\\\textbf{Purity matrix (30ch bins):}\\\\\\\\
+&\\\\qquad I_B=\\\\{0,\\\\dots,9\\\\},\\\\ I_G=\\\\{10,\\\\dots,19\\\\},\\\\ I_R=\\\\{20,\\\\dots,29\\\\}.\\\\\\\\
+&\\\\qquad A_{c,b}=\\\\frac{1}{|I_b|}\\\\sum_{k\\\\in I_b} s_{c,k},\\\\qquad A\\\\in\\\\mathbb{R}^{3\\\\times 3}.\\\\\\\\[8pt]
+&\\\\textbf{Spectral loss:}\\\\\\\\
+&\\\\qquad L_{\\\\mathrm{purity}}=\\\\lVert A-I\\\\rVert_F^2,\\\\qquad
+L_{\\\\mathrm{abs}}=\\\\lVert \\\\mathbf{1}-\\\\mathrm{diag}(A)\\\\rVert_2^2.\\\\\\\\
+&\\\\qquad L_{\\\\mathrm{spec}}=${w_purity.toFixed(3)}\\\\,L_{\\\\mathrm{purity}}+${w_abs.toFixed(3)}\\\\,L_{\\\\mathrm{abs}}.\\\\\\\\[8pt]
+&\\\\textbf{Regularization:}\\\\\\\\
+&\\\\qquad L_{\\\\mathrm{gray}}=\\\\mathrm{mean}(u(1-u)),\\\\qquad L_{\\\\mathrm{tv}}=\\\\mathrm{TV}(u).\\\\\\\\
+&\\\\qquad L_{\\\\mathrm{reg}}=${w_gray.toFixed(3)}\\\\,L_{\\\\mathrm{gray}}+${w_tv.toFixed(3)}\\\\,L_{\\\\mathrm{tv}}.\\\\\\\\[8pt]
+&\\\\textbf{Fill constraint:}\\\\\\\\
+&\\\\qquad f=\\\\mathrm{mean}(x),\\\\quad f\\\\in[${fill_min.toFixed(2)},\\\\ ${fill_max.toFixed(2)}].\\\\\\\\
+&\\\\qquad L_{\\\\mathrm{fill}}=\\\\mathrm{softplus}(f_{\\\\min}-f)^2+\\\\mathrm{softplus}(f-f_{\\\\max})^2.\\\\\\\\[8pt]
+&\\\\textbf{Total (robust MC):}\\\\\\\\
+&\\\\qquad L_{\\\\mathrm{total}}=\\\\mathbb{E}_{(\\\\sigma,\\\\tau)}\\\\Big[L_{\\\\mathrm{spec}}+L_{\\\\mathrm{reg}}+${w_fill.toFixed(3)}\\\\,L_{\\\\mathrm{fill}}\\\\Big].
+\\\\end{aligned}`;
 
         const box = document.getElementById('lossFormula');
         if (!box) return;
