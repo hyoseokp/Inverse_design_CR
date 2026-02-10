@@ -150,6 +150,9 @@ def cmd_inverse(args: argparse.Namespace) -> int:
 
     # Decide FDTD mode up-front so we can wire periodic verification during the run.
     do_fdtd = str(args.fdtd_verify)
+    # Dry-run should never block on interactive prompts by default.
+    if args.dry_run and do_fdtd == "ask":
+        do_fdtd = "off"
     if do_fdtd == "ask":
         try:
             ans = input("Run FDTD verification on Top-K now? [y/N] ").strip().lower()
