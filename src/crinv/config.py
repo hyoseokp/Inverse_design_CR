@@ -85,6 +85,7 @@ class LossConfig(BaseModel):
 
 
 class OptimizationConfig(BaseModel):
+    engine: Literal["adam", "ga"] = "adam"
     n_start: int = 200
     n_steps: int = 2000
     lr: float = 0.01
@@ -99,6 +100,13 @@ class OptimizationConfig(BaseModel):
     # - "mean": minimize average loss across n_start (default, stable)
     # - "sum":  minimize sum of losses (equivalent to mean with lr scaled by n_start)
     loss_reduction: Literal["mean", "sum"] = "mean"
+
+    # GA-specific knobs (used when engine == "ga")
+    ga_elite: int = 8
+    ga_tournament_k: int = 5
+    ga_crossover_alpha: float = 0.5
+    ga_mutation_sigma: float = 0.15
+    ga_mutation_p: float = 0.2
 
 
 class InverseDesignConfig(BaseModel):

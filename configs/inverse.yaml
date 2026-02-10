@@ -65,6 +65,12 @@ opt:
   random_seed: 0
   chunk_size: 64
   loss_reduction: "mean"
+  engine: "ga"
+  ga_elite: 8
+  ga_tournament_k: 5
+  ga_crossover_alpha: 0.5
+  ga_mutation_sigma: 0.15
+  ga_mutation_p: 0.2
 
 paths:
   paths_yaml: "configs/paths.yaml"
