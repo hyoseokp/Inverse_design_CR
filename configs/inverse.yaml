@@ -47,8 +47,8 @@ loss:
   # Keep fill fraction within surrogate training constraints (CR_recon: sum_min/max).
   # Helps avoid OOD collapse to all-ones/all-zeros.
   w_fill: 1.0
-  fill_min: 0.45
-  fill_max: 0.95
+  fill_min: 0.2
+  fill_max: 0.5
 
 opt:
   n_start: 200
