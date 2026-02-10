@@ -299,7 +299,6 @@ def cmd_inverse(args: argparse.Namespace) -> int:
             # Also copy a per-step artifact into progress_dir for dashboard overlay.
             import shutil
             import numpy as np
-            from pathlib import Path
 
             step_last = int(cfg.opt.n_steps) - 1
             pdir = Path(args.progress_dir)

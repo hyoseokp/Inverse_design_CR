@@ -70,6 +70,22 @@ class CRReconSurrogate:
             raise FileNotFoundError(f"checkpoint_path not found: {self.checkpoint_path}")
         if not self.config_yaml.exists():
             raise FileNotFoundError(f"config_yaml not found: {self.config_yaml}")
+        # Common failure mode: checkpoint is a Git-LFS pointer file (text) instead of the real weights.
+        # Detect early and provide a clear error.
+        try:
+            with self.checkpoint_path.open("rb") as f:
+                head = f.read(200)
+            if b"version https://git-lfs.github.com/spec/v1" in head:
+                raise ValueError(
+                    "checkpoint_path points to a Git-LFS pointer file, not real weights. "
+                    "You need the actual .pt payload on disk (Git LFS download or manual copy). "
+                    f"checkpoint_path={self.checkpoint_path}"
+                )
+        except ValueError:
+            raise
+        except Exception:
+            # Best-effort detection only.
+            pass
 
         cfg = _load_yaml_dict(self.config_yaml)
         model_name = cfg["model"]["name"]
