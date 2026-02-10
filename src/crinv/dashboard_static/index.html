@@ -338,11 +338,15 @@
         <div class="card panel">
           <div class="row">
             <div class="kpi"><b>Top-K</b> <span id="kpiTopk">-</span></div>
-            <div class="row" style="gap:8px">
+          <div class="row" style="gap:8px">
               <div class="kpi">Mode</div>
               <div class="segmented" id="topkModeToggle">
                 <button class="seg-btn" data-topk_mode="best">Best</button>
                 <button class="seg-btn" data-topk_mode="cur">Current</button>
+              </div>
+              <div class="toggleRow" style="height:32px;padding:6px 10px">
+                <div class="kpi"><b>Invert</b></div>
+                <input id="invertToggle" type="checkbox" />
               </div>
               <div class="kpi" id="topkHint"></div>
             </div>
@@ -401,14 +405,16 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
         if (!r.ok) throw new Error(String(r.status));
         return await r.json();
       }
-      function withCacheBust(u, token){
+      function withCacheBust(u, token, invert){
         try{
           const url = new URL(u, window.location.href);
           url.searchParams.set('v', String(token));
+          url.searchParams.set('invert', (invert ? '1' : '0'));
           return url.pathname + url.search;
         } catch(e) {
           // Fallback: naive.
-          return u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(String(token));
+          const inv = (invert ? '1' : '0');
+          return u + (u.includes('?') ? '&' : '?') + 'v=' + encodeURIComponent(String(token)) + '&invert=' + inv;
         }
       }
 
@@ -417,6 +423,7 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
         window: localStorage.getItem('loss_window') || 'all',
         fdtd: (localStorage.getItem('fdtd_verify') || 'off'),
         topk_mode: (localStorage.getItem('topk_mode') || 'best'),
+        invert_view: (localStorage.getItem('invert_view') || 'on'),
         selected: {step:null, idx:0},
         lastTopkKey: ''
       };
@@ -661,7 +668,8 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
             let html = '';
             const maxShow = Math.min(imgs.length, 8);
             for (let i=0;i<maxShow;i++){
-              const src = withCacheBust(imgs[i], t.step);
+              const inv = (ui.invert_view === 'on');
+              const src = withCacheBust(imgs[i], t.step, inv);
               const cap = [
                 (ui.topk_mode === 'cur') && cur && cur[i]!=null ? `cur_loss=${Number(cur[i]).toFixed(6)}` : null,
                 (ui.topk_mode !== 'cur') && best && best[i]!=null ? `best_loss=${Number(best[i]).toFixed(6)}` : null,
@@ -762,6 +770,17 @@ L_{\mathrm{tv}}=\mathrm{TV}(u).\\
       initSegmented(document.getElementById('topkModeToggle'), 'topk_mode', ['best','cur']);
       makeLossChart();
       makeSpecChart();
+
+      // Invert view toggle (display-only).
+      const invertToggle = document.getElementById('invertToggle');
+      if (invertToggle) {
+        invertToggle.checked = (ui.invert_view === 'on');
+        invertToggle.addEventListener('change', () => {
+          ui.invert_view = invertToggle.checked ? 'on' : 'off';
+          localStorage.setItem('invert_view', ui.invert_view);
+          ui.lastTopkKey = ''; // force thumbs refresh
+        });
+      }
 
       // FDTD verify toggle + run button
       const fdtdToggle = document.getElementById('fdtdToggle');
